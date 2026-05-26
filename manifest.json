@@ -13,7 +13,8 @@
     "contextMenus",
     "storage",
     "sidePanel",
-    "clipboardWrite"
+    "clipboardWrite",
+    "offscreen"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -52,15 +53,15 @@
     },
     "ocr-full-page": {
       "suggested_key": {
-        "default": "Ctrl+Shift+F",
-        "mac": "Command+Shift+F"
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
       },
       "description": "OCR full page"
     }
   },
   "web_accessible_resources": [
     {
-      "resources": ["worker/ocr-worker.js", "lib/*"],
+      "resources": ["vendor/tesseract/*"],
       "matches": ["<all_urls>"]
     }
   ]

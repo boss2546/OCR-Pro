@@ -155,7 +155,12 @@ body {
 }
 
 .badge-success { background: rgba(52, 168, 83, 0.15); color: var(--color-success); }
-.badge-warning { background: rgba(251, 188, 5, 0.15); color: #b06d00; }
+.badge-warning { background: rgba(251, 188, 5, 0.15); color: #a85d00; }
+[data-theme="dark"] .badge-warning,
+:root:not([data-theme="light"]) .badge-warning { color: #f5c542; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .badge-warning { color: #f5c542; }
+}
 .badge-error { background: rgba(234, 67, 53, 0.15); color: var(--color-error); }
 
 .toast {

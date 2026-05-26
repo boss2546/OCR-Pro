@@ -20,9 +20,10 @@ const resultArea = $('#result-area');
 const resultPreview = $('#result-preview');
 const toast = $('#toast');
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 let lastResult = null;
+let toastTimer;
 
-// Load saved language
 chrome.storage.local.get({ ocrLanguages: 'eng+tha', theme: 'system' }, (s) => {
   langSelect.value = s.ocrLanguages;
   if (s.theme !== 'system') document.documentElement.setAttribute('data-theme', s.theme);
@@ -47,7 +48,11 @@ btnFullpage.addEventListener('click', () => {
 btnSettings.addEventListener('click', () => chrome.runtime.openOptionsPage());
 
 // --- Upload ---
-btnBrowse.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
+btnBrowse.addEventListener('click', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  fileInput.click();
+});
 uploadZone.addEventListener('click', () => fileInput.click());
 uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('dragover'); });
 uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
@@ -59,6 +64,10 @@ uploadZone.addEventListener('drop', (e) => {
 fileInput.addEventListener('change', () => { if (fileInput.files[0]) processFile(fileInput.files[0]); });
 
 function processFile(file) {
+  if (file.size > MAX_FILE_SIZE) {
+    showToast('File too large (max 10MB)');
+    return;
+  }
   showStatus('Reading file...', 0);
   const reader = new FileReader();
   reader.onload = () => send(MSG.CAPTURE_UPLOAD, { imageData: reader.result, filename: file.name });
@@ -69,6 +78,7 @@ function processFile(file) {
 btnUrlOcr.addEventListener('click', () => {
   const url = urlInput.value.trim();
   if (!url) return;
+  try { new URL(url); } catch { showToast('Invalid URL'); return; }
   send(MSG.CAPTURE_URL, { url });
   showStatus('Fetching image...', 0);
 });
@@ -92,7 +102,7 @@ chrome.runtime.onMessage.addListener((msg) => {
     hideStatus();
     lastResult = msg.record.rawText;
     resultArea.hidden = false;
-    resultPreview.textContent = msg.record.rawText.slice(0, 300);
+    resultPreview.textContent = (msg.record.rawText || '').slice(0, 300) || 'No text detected';
   }
   if (msg.type === MSG.OCR_ERROR) {
     hideStatus();
@@ -107,10 +117,14 @@ function showStatus(text, progress) {
   progressFill.style.width = Math.round(progress * 100) + '%';
 }
 
-function hideStatus() { statusArea.hidden = true; }
+function hideStatus() {
+  statusArea.hidden = true;
+  progressFill.style.width = '0%';
+}
 
 function showToast(message) {
+  clearTimeout(toastTimer);
   toast.textContent = message;
   toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 3000);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
 }

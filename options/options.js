@@ -44,17 +44,26 @@ function save(key, value) {
 // --- Auto-save inputs ---
 langSelect.addEventListener('change', () => save('ocrLanguages', langSelect.value));
 
-let timer;
 function autoSave(key, el) {
+  let t;
   el.addEventListener('input', () => {
-    clearTimeout(timer);
-    timer = setTimeout(() => save(key, el.value), 500);
+    clearTimeout(t);
+    t = setTimeout(() => save(key, el.value), 500);
   });
 }
 autoSave('aiApiUrl', aiUrl);
 autoSave('aiApiKey', aiKey);
 autoSave('aiModel', aiModel);
 autoSave('aiSystemPrompt', aiPrompt);
+
+function flushAllFields() {
+  return chrome.storage.local.set({
+    aiApiUrl: aiUrl.value,
+    aiApiKey: aiKey.value,
+    aiModel: aiModel.value,
+    aiSystemPrompt: aiPrompt.value,
+  });
+}
 
 // --- Toggle API key visibility ---
 btnToggleKey.addEventListener('click', () => {
@@ -69,6 +78,7 @@ btnTestApi.addEventListener('click', async () => {
   testStatus.className = 'test-status';
   btnTestApi.disabled = true;
   try {
+    await flushAllFields();
     const result = await send('ai:testConnection');
     if (result.success) {
       testStatus.textContent = 'Connected!';

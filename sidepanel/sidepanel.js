@@ -103,11 +103,22 @@ btnCopy.addEventListener('click', async () => {
   showToast('Copied!');
 });
 
-btnDownloadTxt.addEventListener('click', () => exportManager.downloadTxt(resultText.value));
-btnDownloadMd.addEventListener('click', () => exportManager.downloadMd(resultText.value));
+btnDownloadTxt.addEventListener('click', () => {
+  if (!resultText.value) { showToast('No text to export'); return; }
+  exportManager.downloadTxt(resultText.value);
+});
+btnDownloadMd.addEventListener('click', () => {
+  if (!resultText.value) { showToast('No text to export'); return; }
+  exportManager.downloadMd(resultText.value);
+});
 
 // --- Diff ---
 diffCheckbox.addEventListener('change', () => {
+  if (diffCheckbox.checked && !enhancedText) {
+    diffCheckbox.checked = false;
+    showToast('Run AI Enhance first');
+    return;
+  }
   if (diffCheckbox.checked && enhancedText) {
     textDisplay.hidden = true;
     diffDisplay.hidden = false;
@@ -148,30 +159,66 @@ let searchTimer;
 historySearch.addEventListener('input', () => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(async () => {
-    const q = historySearch.value.trim();
-    if (!q) { loadHistory(); return; }
-    const records = await send('history:search', { query: q });
-    renderHistory(records || []);
+    try {
+      const q = historySearch.value.trim();
+      if (!q) { loadHistory(); return; }
+      const records = await send('history:search', { query: q });
+      renderHistory(records || []);
+    } catch { renderHistory([]); }
   }, 300);
 });
+
+function isSafeThumb(s) {
+  return typeof s === 'string' && s.startsWith('data:image/');
+}
 
 function renderHistory(records) {
   if (!records.length) {
     historyList.innerHTML = '<p class="history-empty">No history yet</p>';
     return;
   }
-  historyList.innerHTML = records.map(r => `
-    <div class="history-item" data-id="${r.id}">
-      ${r.thumbnail ? `<img class="history-thumb" src="${r.thumbnail}" alt="">` : '<div class="history-thumb"></div>'}
-      <div class="history-info">
-        <div class="history-date">${new Date(r.timestamp).toLocaleString()} • ${r.sourceType}</div>
-        <div class="history-preview">${esc((r.enhancedText || r.rawText || '').slice(0, 100))}</div>
-      </div>
-      <div class="history-actions">
-        <button class="btn btn-sm btn-delete" data-id="${r.id}" title="Delete">✕</button>
-      </div>
-    </div>
-  `).join('');
+  historyList.innerHTML = '';
+  records.forEach(r => {
+    const item = document.createElement('div');
+    item.className = 'history-item';
+    item.dataset.id = r.id;
+
+    if (r.thumbnail && isSafeThumb(r.thumbnail)) {
+      const img = document.createElement('img');
+      img.className = 'history-thumb';
+      img.src = r.thumbnail;
+      img.alt = '';
+      item.appendChild(img);
+    } else {
+      const ph = document.createElement('div');
+      ph.className = 'history-thumb';
+      item.appendChild(ph);
+    }
+
+    const info = document.createElement('div');
+    info.className = 'history-info';
+    const date = document.createElement('div');
+    date.className = 'history-date';
+    date.textContent = `${new Date(r.timestamp).toLocaleString()} • ${r.sourceType}`;
+    const preview = document.createElement('div');
+    preview.className = 'history-preview';
+    preview.textContent = (r.enhancedText || r.rawText || '').slice(0, 100);
+    info.appendChild(date);
+    info.appendChild(preview);
+    item.appendChild(info);
+
+    const actions = document.createElement('div');
+    actions.className = 'history-actions';
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn btn-sm btn-delete';
+    delBtn.dataset.id = r.id;
+    delBtn.title = 'Delete';
+    delBtn.textContent = '✕';
+    actions.appendChild(delBtn);
+    item.appendChild(actions);
+
+    historyList.appendChild(item);
+  });
 
   historyList.querySelectorAll('.history-item').forEach(item => {
     item.addEventListener('click', async (e) => {
@@ -197,15 +244,20 @@ function esc(text) {
   return d.innerHTML;
 }
 
+let toastTimer;
 function showToast(msg) {
+  clearTimeout(toastTimer);
   toast.textContent = msg;
   toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 3000);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
 // --- Listen for new results ---
 chrome.runtime.onMessage.addListener((msg) => {
-  if (msg.type === MSG.OCR_RESULT && msg.record) showResult(msg.record);
+  if (msg.type === MSG.OCR_RESULT && msg.record) {
+    showResult(msg.record);
+    tabs[0].click();
+  }
   if (msg.type === MSG.OCR_ERROR) showToast('OCR Error: ' + msg.error);
 });
 

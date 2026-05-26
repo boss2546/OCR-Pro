@@ -16,13 +16,14 @@
     widget = document.createElement('div');
     widget.id = 'ocr-pro-widget';
 
-    var preview = (record.rawText || '').slice(0, 100);
+    var text = record.rawText || '';
+    var preview = text.slice(0, 100);
     widget.innerHTML =
       '<div id="ocr-pro-widget-header">' +
         '<span>OCR Pro</span>' +
         '<button id="ocr-pro-widget-close" aria-label="Close">✕</button>' +
       '</div>' +
-      '<div id="ocr-pro-widget-text">' + escapeHtml(preview) + (record.rawText.length > 100 ? '...' : '') + '</div>' +
+      '<div id="ocr-pro-widget-text">' + escapeHtml(preview) + (text.length > 100 ? '...' : '') + '</div>' +
       '<div id="ocr-pro-widget-actions">' +
         '<button id="ocr-pro-widget-copy">Copy</button>' +
         '<button id="ocr-pro-widget-panel">Open Panel</button>' +
@@ -33,10 +34,10 @@
     widget.querySelector('#ocr-pro-widget-close').addEventListener('click', removeWidget);
 
     widget.querySelector('#ocr-pro-widget-copy').addEventListener('click', function () {
-      navigator.clipboard.writeText(record.rawText).then(function () {
+      navigator.clipboard.writeText(text).then(function () {
         var btn = document.querySelector('#ocr-pro-widget-copy');
         if (btn) { btn.textContent = 'Copied!'; setTimeout(function () { if (btn) btn.textContent = 'Copy'; }, 1500); }
-      });
+      }).catch(function () {});
     });
 
     widget.querySelector('#ocr-pro-widget-panel').addEventListener('click', function () {

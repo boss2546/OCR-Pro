@@ -1,10 +1,14 @@
 (function () {
-  let overlay = null;
-  let selection = null;
-  let startX, startY;
-  let isSelecting = false;
+  var overlay = null;
+  var selection = null;
+  var startX, startY;
+  var isSelecting = false;
+  var savedOverflow = '';
 
   function createOverlay() {
+    savedOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
     overlay = document.createElement('div');
     overlay.id = 'ocr-pro-overlay';
     overlay.innerHTML =
@@ -26,6 +30,7 @@
       selection = null;
       isSelecting = false;
       document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = savedOverflow;
     }
   }
 
@@ -75,9 +80,8 @@
         y: Math.round(y * dpr),
         w: Math.round(w * dpr),
         h: Math.round(h * dpr),
-        dpr: dpr,
       },
-    });
+    }).catch(function () {});
   }
 
   function onKeyDown(e) {
