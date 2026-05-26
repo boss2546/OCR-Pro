@@ -42,32 +42,48 @@
 
     <section class="card">
       <h2 class="section-title">AI Configuration</h2>
-      <p class="section-desc">Connect any OpenAI-compatible API to fix OCR text errors.</p>
+      <p class="section-desc">Select a provider and enter your API key. Used for AI Vision OCR and AI text enhancement.</p>
 
       <div class="form-group">
-        <label for="ai-url">API URL</label>
-        <input type="url" class="input" id="ai-url" placeholder="https://api.openai.com/v1/chat/completions">
+        <label for="ai-provider">Provider</label>
+        <select class="input" id="ai-provider">
+          <option value="">-- Select Provider --</option>
+          <option value="gemini">Google Gemini (free tier available)</option>
+          <option value="openai">OpenAI (GPT-4o)</option>
+          <option value="anthropic">Anthropic (Claude)</option>
+          <option value="groq">Groq (fast, free tier)</option>
+          <option value="custom">Custom / Ollama</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="get-key-group" hidden>
+        <a href="#" id="get-key-link" class="btn btn-sm btn-success" target="_blank">Get API Key</a>
       </div>
 
       <div class="form-group">
         <label for="ai-key">API Key</label>
         <div class="input-row">
-          <input type="password" class="input" id="ai-key" placeholder="sk-...">
+          <input type="password" class="input" id="ai-key" placeholder="Paste your API key here...">
           <button class="btn btn-sm" id="btn-toggle-key" type="button">Show</button>
         </div>
       </div>
 
-      <div class="form-group">
-        <label for="ai-model">Model</label>
-        <input type="text" class="input" id="ai-model" placeholder="gpt-4o, claude-sonnet-4-6, etc.">
+      <div class="form-group" id="custom-fields" hidden>
+        <label for="ai-url">API URL</label>
+        <input type="url" class="input" id="ai-url" placeholder="https://api.openai.com/v1/chat/completions">
+        <label for="ai-model" style="margin-top:8px;display:block">Model</label>
+        <input type="text" class="input" id="ai-model" placeholder="model name">
       </div>
 
-      <div class="form-group">
-        <label for="ai-prompt">System Prompt</label>
-        <textarea class="textarea" id="ai-prompt" rows="5"></textarea>
-      </div>
+      <details style="margin-top:8px">
+        <summary style="cursor:pointer;font-size:13px;color:var(--color-text-secondary)">Advanced Settings</summary>
+        <div class="form-group" style="margin-top:8px">
+          <label for="ai-prompt">System Prompt</label>
+          <textarea class="textarea" id="ai-prompt" rows="4"></textarea>
+        </div>
+      </details>
 
-      <div class="form-actions">
+      <div class="form-actions" style="margin-top:12px">
         <button class="btn btn-primary" id="btn-test-api">Test Connection</button>
         <span class="test-status" id="test-status"></span>
       </div>
