@@ -17,10 +17,10 @@ const PROVIDERS = {
     placeholder: 'sk-...',
   },
   anthropic: {
-    url: 'https://api.anthropic.com/v1/chat/completions',
-    model: 'claude-sonnet-4-6',
-    keyPage: 'https://console.anthropic.com/settings/keys',
-    placeholder: 'sk-ant-...',
+    url: 'https://openrouter.ai/api/v1/chat/completions',
+    model: 'anthropic/claude-sonnet-4-6',
+    keyPage: 'https://openrouter.ai/keys',
+    placeholder: 'sk-or-...',
   },
   groq: {
     url: 'https://api.groq.com/openai/v1/chat/completions',

@@ -440,10 +440,6 @@ onMessage({
       if (msg.recordId) {
         await historyDB.update(msg.recordId, { translatedText: translated });
       }
-      const tab = sender.tab || (await getCurrentTab());
-      if (tab) {
-        chrome.tabs.sendMessage(tab.id, { type: 'ocr:translated', text: translated }).catch(() => {});
-      }
       return { translated };
     } catch (err) {
       return { error: err.message };
