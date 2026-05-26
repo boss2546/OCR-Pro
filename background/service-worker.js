@@ -156,9 +156,7 @@ onMessage({
       const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
 
       const { x, y, w, h } = msg.rect;
-      const response = await fetch(dataUrl);
-      const blob = await response.blob();
-      const bitmap = await createImageBitmap(blob);
+      const bitmap = await createImageBitmap(await (await fetch(dataUrl)).blob());
 
       const canvas = new OffscreenCanvas(w, h);
       const ctx = canvas.getContext('2d');
