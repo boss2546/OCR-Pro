@@ -6,6 +6,7 @@ import imagePreprocessor from '../lib/image-preprocessor.js';
 
 function dataUrlToBlob(dataUrl) {
   const commaIdx = dataUrl.indexOf(',');
+  if (commaIdx === -1) throw new Error('Invalid image data');
   const header = dataUrl.slice(0, commaIdx);
   const b64 = dataUrl.slice(commaIdx + 1);
   const mimeMatch = header.match(/:(.*?);/);
@@ -56,6 +57,7 @@ async function processImageUrl(url, tabId, sourceType) {
   try {
     broadcastProgress('Fetching image...', 0);
     const response = await fetch(url);
+    if (!response.ok) throw new Error(`Failed to fetch image: HTTP ${response.status}`);
     const blob = await response.blob();
     await runOcr(blob, url, sourceType, tabId);
   } catch (err) {
@@ -93,6 +95,7 @@ async function runOcr(imageSource, sourceUrl, sourceType, sourceTabId) {
       enhancedText: null,
       language: langs,
       confidence: result.confidence,
+      timestamp: Date.now(),
     };
 
     let record = recordData;
