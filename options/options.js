@@ -6,7 +6,7 @@ const $ = (sel) => document.querySelector(sel);
 const PROVIDERS = {
   gemini: {
     url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
     keyPage: 'https://aistudio.google.com/apikey',
     placeholder: 'AIzaSy...',
   },
