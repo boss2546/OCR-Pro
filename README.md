@@ -17,8 +17,8 @@ Chrome Extension สำหรับ OCR ข้อความจากรูป�
 ### OCR แบบต่างๆ
 | วิธี | ทำยังไง |
 |------|---------|
-| **ลากเลือกพื้นที่** | กด `Ctrl+Shift+O` (Mac: `Cmd+Shift+O`) → ลากกรอบ → ปล่อย |
-| **OCR ทั้งหน้า** | กด `Ctrl+Shift+F` หรือกดปุ่ม "Full Page" ใน popup |
+| **ลากเลือกพื้นที่** | กด `Ctrl+Shift+U` (Mac: `Cmd+Shift+U`) → ลากกรอบ → ปล่อย |
+| **OCR ทั้งหน้า** | กด `Ctrl+Shift+Y` หรือกดปุ่ม "Full Page" ใน popup |
 | **คลิกขวารูปภาพ** | คลิกขวาที่รูปใดก็ได้ → "OCR this image" |
 | **อัพโหลดไฟล์** | เปิด popup → ลากไฟล์รูปมาวาง หรือกด browse |
 | **วาง URL** | เปิด popup → วาง URL รูปภาพ → กด OCR |
@@ -59,8 +59,11 @@ OCR/
 │   ├── ocr-engine.js      ← จัดการ Tesseract.js
 │   ├── ai-processor.js    ← เรียก AI แก้ข้อความ
 │   └── export-manager.js  ← ดาวน์โหลด TXT/MD
-├── worker/
-│   └── ocr-worker.js      ← Web Worker รัน OCR (ไม่ค้าง UI)
+├── offscreen/
+│   ├── offscreen.html     ← Offscreen document สำหรับรัน Tesseract.js
+│   └── offscreen.js       ← OCR logic ทำงานใน offscreen context
+├── vendor/
+│   └── tesseract/         ← Tesseract.js v5 bundled (WASM + worker)
 ├── styles/
 │   └── shared.css         ← สไตล์กลาง + dark/light theme
 └── icons/                 ← ไอคอน extension
@@ -69,10 +72,10 @@ OCR/
 ## เทคโนโลยี
 
 - **Manifest V3** — มาตรฐาน Chrome Extension ล่าสุด
-- **Tesseract.js v5** — OCR engine รันบนเครื่อง ไม่ต้องมี server
+- **Tesseract.js v5** — OCR engine bundled ในตัว (ไม่โหลดจาก CDN)
+- **Offscreen Document API** — รัน OCR ใน offscreen context (MV3 compatible)
 - **Vanilla JS** — ไม่ใช้ framework, เบา, เร็ว
 - **IndexedDB** — เก็บประวัติ OCR แบบ local
-- **Web Worker** — รัน OCR แยก thread ไม่ค้าง UI
 - **OpenAI-compatible API** — รองรับ ChatGPT, Claude, Gemini, Ollama ฯลฯ
 
 ## ภาษาที่รองรับ
@@ -84,8 +87,8 @@ English, Thai, Japanese, Chinese (Simplified/Traditional), Korean, French, Germa
 
 ## หมายเหตุสำหรับ Developer
 
-- **Tesseract.js language data** จะดาวน์โหลดจาก CDN ครั้งแรกที่ใช้ (~1-15MB ต่อภาษา) OCR ครั้งแรกจะช้าหน่อย
+- **Tesseract.js** bundled ในตัวแล้ว (vendor/tesseract/) ไม่โหลดจาก CDN
+- **Language data** (.traineddata) จะดาวน์โหลดจาก CDN ครั้งแรกที่ใช้ (~1-15MB ต่อภาษา) OCR ครั้งแรกจะช้าหน่อย
 - **AI API** รองรับทุก endpoint ที่ใช้รูปแบบ OpenAI (ChatGPT, Claude via proxy, Ollama, LM Studio, vLLM)
-- ถ้าจะเผยแพร่ใน Chrome Web Store ต้อง bundle Tesseract.js แทน CDN
 - Content scripts ใช้ IIFE (ไม่ใช้ ES modules) เพราะ Manifest V3 ไม่รองรับ module ใน content scripts
 - Service worker ใช้ ES modules (`"type": "module"` ใน manifest)

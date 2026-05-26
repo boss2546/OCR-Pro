@@ -97,11 +97,12 @@ body {
 .btn:hover { background: var(--color-bg-secondary); border-color: var(--color-text-secondary); }
 .btn:active { transform: scale(0.97); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
-.btn-primary { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
-.btn-primary:hover { background: var(--color-primary-hover); border-color: var(--color-primary-hover); }
+.btn-primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+.btn-primary:hover { background: #1557b0; border-color: #1557b0; }
 
-.btn-success { background: var(--color-success); color: #fff; border-color: var(--color-success); }
+.btn-success { background: #1e8e3e; color: #fff; border-color: #1e8e3e; }
 
 .btn-sm { padding: var(--spacing-xs) var(--spacing-sm); font-size: var(--font-size-xs); }
 

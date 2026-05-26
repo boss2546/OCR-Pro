@@ -137,10 +137,12 @@ btnClear.addEventListener('click', async () => {
   showToast('History cleared');
 });
 
+let toastTimer;
 function showToast(msg) {
+  clearTimeout(toastTimer);
   toast.textContent = msg;
   toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 3000);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
 load();

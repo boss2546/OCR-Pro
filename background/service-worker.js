@@ -14,15 +14,16 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId === 'ocr-image' && info.srcUrl) {
+  if (info.menuItemId === 'ocr-image' && info.srcUrl && tab) {
     await processImageUrl(info.srcUrl, tab.id, 'image');
   }
 });
 
 // --- Keyboard shortcuts ---
 chrome.commands.onCommand.addListener(async (command, tab) => {
+  if (!tab) return;
   if (command === 'ocr-area-select') {
-    sendToTab(tab.id, MSG.CAPTURE_AREA);
+    sendToTab(tab.id, MSG.CAPTURE_AREA).catch(() => {});
   }
   if (command === 'ocr-full-page') {
     await captureFullPage(tab.id, tab.windowId, tab.url);
@@ -73,7 +74,7 @@ async function runOcr(imageSource, sourceUrl, sourceType, sourceTabId) {
 
     const result = await ocrEngine.recognize(preprocessed, langs, onProgress);
 
-    const record = await historyDB.add({
+    const recordData = {
       sourceType,
       sourceUrl: sourceUrl || '',
       thumbnail: thumbnailData,
@@ -81,7 +82,12 @@ async function runOcr(imageSource, sourceUrl, sourceType, sourceTabId) {
       enhancedText: null,
       language: langs,
       confidence: result.confidence,
-    });
+    };
+
+    let record = recordData;
+    try {
+      record = await historyDB.add(recordData);
+    } catch (_) { /* history save failure should not lose OCR result */ }
 
     broadcastResult(record, sourceTabId);
   } catch (err) {
@@ -157,6 +163,7 @@ onMessage({
       const canvas = new OffscreenCanvas(w, h);
       const ctx = canvas.getContext('2d');
       ctx.drawImage(bitmap, x, y, w, h, 0, 0, w, h);
+      bitmap.close();
       const croppedBlob = await canvas.convertToBlob({ type: 'image/png' });
 
       await runOcr(croppedBlob, tab.url, 'area', tab.id);

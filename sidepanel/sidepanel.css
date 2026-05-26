@@ -3,8 +3,10 @@
   50% { opacity: 0.5; }
 }
 
+html, body { height: 100%; margin: 0; overflow: hidden; }
+
 .panel {
-  height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -87,9 +89,15 @@
   flex: 1;
 }
 
+#text-display {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 .result-content .textarea {
   flex: 1;
-  min-height: 200px;
+  min-height: 150px;
   font-size: var(--font-size-sm);
 }
 
@@ -97,6 +105,10 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--spacing-sm);
+}
+
+@media (max-width: 400px) {
+  .diff-container { grid-template-columns: 1fr; }
 }
 
 .diff-col h4 {

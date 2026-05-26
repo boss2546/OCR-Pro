@@ -8,6 +8,7 @@ async function initWorker(langs) {
   worker = await Tesseract.createWorker(langs, 1, {
     workerPath: chrome.runtime.getURL('vendor/tesseract/worker.min.js'),
     corePath: chrome.runtime.getURL('vendor/tesseract/'),
+    workerBlobURL: false,
     logger: (info) => {
       if (info.status === 'recognizing text') {
         chrome.runtime.sendMessage({

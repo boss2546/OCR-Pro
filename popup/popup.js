@@ -35,9 +35,13 @@ langSelect.addEventListener('change', () => {
 
 // --- Actions ---
 btnArea.addEventListener('click', async () => {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  await chrome.tabs.sendMessage(tab.id, { type: MSG.CAPTURE_AREA });
-  window.close();
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    await chrome.tabs.sendMessage(tab.id, { type: MSG.CAPTURE_AREA });
+    window.close();
+  } catch {
+    showToast('Cannot OCR this page');
+  }
 });
 
 btnFullpage.addEventListener('click', () => {
