@@ -132,11 +132,11 @@ btnCopy.addEventListener('click', async () => {
 
 btnDownloadTxt.addEventListener('click', () => {
   if (!resultText.value) { showToast('No text to export'); return; }
-  exportManager.downloadTxt(resultText.value);
+  try { exportManager.downloadTxt(resultText.value); } catch { showToast('Download failed'); }
 });
 btnDownloadMd.addEventListener('click', () => {
   if (!resultText.value) { showToast('No text to export'); return; }
-  exportManager.downloadMd(resultText.value);
+  try { exportManager.downloadMd(resultText.value); } catch { showToast('Download failed'); }
 });
 
 // --- Diff ---
