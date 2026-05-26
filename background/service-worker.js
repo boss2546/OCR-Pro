@@ -4,6 +4,17 @@ import ocrEngine from '../lib/ocr-engine.js';
 import aiProcessor from '../lib/ai-processor.js';
 import imagePreprocessor from '../lib/image-preprocessor.js';
 
+function dataUrlToBlob(dataUrl) {
+  const commaIdx = dataUrl.indexOf(',');
+  const header = dataUrl.slice(0, commaIdx);
+  const b64 = dataUrl.slice(commaIdx + 1);
+  const mimeMatch = header.match(/:(.*?);/);
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mimeMatch?.[1] || 'image/png' });
+}
+
 // --- Context menus ---
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -156,7 +167,7 @@ onMessage({
       const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
 
       const { x, y, w, h } = msg.rect;
-      const bitmap = await createImageBitmap(await (await fetch(dataUrl)).blob());
+      const bitmap = await createImageBitmap(dataUrlToBlob(dataUrl));
 
       const canvas = new OffscreenCanvas(w, h);
       const ctx = canvas.getContext('2d');
