@@ -38,19 +38,48 @@ langSelect.addEventListener('change', () => {
   chrome.storage.local.set({ ocrLanguages: langSelect.value });
 });
 
+async function ensureContentScript(tabId) {
+  try {
+    await chrome.tabs.sendMessage(tabId, { type: 'ping' });
+    return;
+  } catch { /* not injected yet */ }
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    files: ['content/area-selector.js', 'content/floating-widget.js', 'content/content.js'],
+  });
+  await chrome.scripting.insertCSS({
+    target: { tabId },
+    files: ['content/content.css'],
+  });
+  for (let i = 0; i < 10; i++) {
+    try {
+      await chrome.tabs.sendMessage(tabId, { type: 'ping' });
+      return;
+    } catch { await new Promise(r => setTimeout(r, 50)); }
+  }
+}
+
 // --- Actions ---
 btnArea.addEventListener('click', async () => {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || tab.url?.startsWith('chrome://') || tab.url?.startsWith('chrome-extension://') || tab.url?.startsWith('edge://')) {
+      showToast('Cannot OCR browser internal pages. Try a regular webpage.');
+      return;
+    }
+    await ensureContentScript(tab.id);
     await chrome.tabs.sendMessage(tab.id, { type: MSG.CAPTURE_AREA });
     window.close();
   } catch {
-    showToast('Cannot OCR this page');
+    showToast('Cannot OCR this page. Try refreshing.');
   }
 });
 
 btnFullpage.addEventListener('click', () => {
-  send(MSG.CAPTURE_FULLPAGE).catch(() => {});
+  send(MSG.CAPTURE_FULLPAGE).catch(() => {
+    hideStatus();
+    showToast('Failed to start capture');
+  });
   showStatus('Capturing page...', 0);
 });
 
@@ -68,9 +97,17 @@ uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag
 uploadZone.addEventListener('drop', (e) => {
   e.preventDefault();
   uploadZone.classList.remove('dragover');
-  if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]);
+  const file = e.dataTransfer.files[0];
+  if (file && !file.type.startsWith('image/')) {
+    showToast('Please drop an image file');
+    return;
+  }
+  if (file) processFile(file);
 });
-fileInput.addEventListener('change', () => { if (fileInput.files[0]) processFile(fileInput.files[0]); });
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) processFile(fileInput.files[0]);
+  fileInput.value = '';
+});
 
 function processFile(file) {
   if (file.size > MAX_FILE_SIZE) {
@@ -85,12 +122,26 @@ function processFile(file) {
 }
 
 // --- URL ---
-btnUrlOcr.addEventListener('click', () => {
+function submitUrl() {
   const url = urlInput.value.trim();
   if (!url) return;
   try { new URL(url); } catch { showToast('Invalid URL'); return; }
   send(MSG.CAPTURE_URL, { url }).catch(() => {});
   showStatus('Fetching image...', 0);
+}
+btnUrlOcr.addEventListener('click', submitUrl);
+urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitUrl(); });
+
+// --- Paste image from clipboard ---
+document.addEventListener('paste', (e) => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (file) { processFile(file); break; }
+    }
+  }
 });
 
 // --- Result actions ---

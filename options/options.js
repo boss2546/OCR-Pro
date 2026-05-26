@@ -3,6 +3,7 @@ import { send } from '../lib/messaging.js';
 
 const $ = (sel) => document.querySelector(sel);
 
+const ocrEngineSelect = $('#ocr-engine');
 const langSelect = $('#lang-select');
 const aiUrl = $('#ai-url');
 const aiKey = $('#ai-key');
@@ -19,6 +20,7 @@ const toast = $('#toast');
 // --- Load settings ---
 async function load() {
   const s = await chrome.storage.local.get({
+    ocrEngine: 'ai-vision',
     ocrLanguages: 'eng+tha',
     aiApiUrl: '',
     aiApiKey: '',
@@ -26,6 +28,7 @@ async function load() {
     aiSystemPrompt: DEFAULT_SYSTEM_PROMPT,
     theme: 'system',
   });
+  ocrEngineSelect.value = s.ocrEngine;
   langSelect.value = s.ocrLanguages;
   aiUrl.value = s.aiApiUrl;
   aiKey.value = s.aiApiKey;
@@ -42,6 +45,7 @@ function save(key, value) {
 }
 
 // --- Auto-save inputs ---
+ocrEngineSelect.addEventListener('change', () => save('ocrEngine', ocrEngineSelect.value));
 langSelect.addEventListener('change', () => save('ocrLanguages', langSelect.value));
 
 function autoSave(key, el) {
@@ -117,14 +121,15 @@ shortcutsLink.addEventListener('click', (e) => {
 // --- Export / Clear ---
 btnExport.addEventListener('click', async () => {
   try {
-    const records = await send('history:getAll', { limit: 999999 });
-    const blob = new Blob([JSON.stringify(records || [], null, 2)], { type: 'application/json' });
+    const records = await send('history:getAll', { limit: 5000 });
+    const stripped = (records || []).map(({ thumbnail, ...rest }) => rest);
+    const blob = new Blob([JSON.stringify(stripped, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `ocr-history-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
     showToast('Exported!');
   } catch (err) {
     showToast('Error: ' + err.message);

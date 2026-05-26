@@ -11,8 +11,17 @@
     <h1>OCR Pro Settings</h1>
 
     <section class="card">
+      <h2 class="section-title">OCR Engine</h2>
+      <p class="section-desc">Choose the OCR engine. AI Vision requires API configuration below.</p>
+      <select class="input" id="ocr-engine">
+        <option value="tesseract">Tesseract (offline, fast)</option>
+        <option value="ai-vision">AI Vision (cloud, most accurate)</option>
+      </select>
+    </section>
+
+    <section class="card">
       <h2 class="section-title">OCR Language</h2>
-      <p class="section-desc">Default language for text recognition.</p>
+      <p class="section-desc">Language for Tesseract engine. AI Vision detects automatically.</p>
       <select class="input" id="lang-select">
         <option value="eng">English</option>
         <option value="tha">Thai</option>

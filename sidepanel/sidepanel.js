@@ -40,9 +40,10 @@ let enhancedText = null;
 // --- Tabs ---
 tabs.forEach(tab => {
   tab.addEventListener('click', () => {
-    tabs.forEach(t => t.classList.remove('active'));
+    tabs.forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
     tabContents.forEach(c => c.classList.remove('active'));
     tab.classList.add('active');
+    tab.setAttribute('aria-selected', 'true');
     const target = $(`#tab-${tab.dataset.tab}`);
     if (target) target.classList.add('active');
     if (tab.dataset.tab === 'history') loadHistory();
@@ -185,6 +186,8 @@ function renderHistory(records) {
     const item = document.createElement('div');
     item.className = 'history-item';
     item.dataset.id = r.id;
+    item.tabIndex = 0;
+    item.setAttribute('role', 'button');
 
     if (r.thumbnail && isSafeThumb(r.thumbnail)) {
       const img = document.createElement('img');
@@ -253,13 +256,45 @@ function showToast(msg) {
   toastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
-// --- Listen for new results ---
+// --- Listen for progress and results ---
 chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.type === MSG.OCR_PROGRESS) {
+    resultEmpty.hidden = true;
+    resultContent.hidden = true;
+    const prog = document.getElementById('ocr-progress');
+    if (prog) {
+      prog.hidden = false;
+      const fill = prog.querySelector('.progress-bar-fill');
+      const text = prog.querySelector('.status-text');
+      if (fill) fill.style.width = Math.round((msg.progress || 0) * 100) + '%';
+      if (text) text.textContent = msg.status || 'Processing...';
+    }
+  }
   if (msg.type === MSG.OCR_RESULT && msg.record) {
+    const prog = document.getElementById('ocr-progress');
+    if (prog) prog.hidden = true;
     showResult(msg.record);
     tabs[0].click();
   }
-  if (msg.type === MSG.OCR_ERROR) showToast('OCR Error: ' + msg.error);
+  if (msg.type === MSG.OCR_ERROR) {
+    const prog = document.getElementById('ocr-progress');
+    if (prog) prog.hidden = true;
+    showToast('OCR Error: ' + msg.error);
+  }
 });
 
 loadHistory();
+
+(async () => {
+  try {
+    const records = await send('history:getAll', { limit: 1 });
+    if (records && records.length > 0) showResult(records[0]);
+  } catch {}
+  try {
+    const res = await send('ai:isConfigured');
+    if (!res || !res.configured) {
+      btnAiEnhance.disabled = true;
+      btnAiEnhance.title = 'Configure AI in Settings first';
+    }
+  } catch {}
+})();

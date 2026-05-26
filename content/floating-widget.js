@@ -1,4 +1,5 @@
 (function () {
+  if (window.__ocrProWidget) return;
   var widget = null;
   var dismissTimer = null;
   var onMouseMove = null;
@@ -26,6 +27,7 @@
       '<div id="ocr-pro-widget-text">' + escapeHtml(preview) + (text.length > 100 ? '...' : '') + '</div>' +
       '<div id="ocr-pro-widget-actions">' +
         '<button id="ocr-pro-widget-copy">Copy</button>' +
+        '<button id="ocr-pro-widget-hd" title="Re-OCR with AI Vision for higher quality">HD</button>' +
         '<button id="ocr-pro-widget-panel">Open Panel</button>' +
       '</div>';
 
@@ -36,12 +38,34 @@
     var copyBtn = widget.querySelector('#ocr-pro-widget-copy');
     copyBtn.addEventListener('click', function () {
       var currentWidget = widget;
-      navigator.clipboard.writeText(text).then(function () {
+      var onCopied = function () {
         if (currentWidget && currentWidget.isConnected) {
           var btn = currentWidget.querySelector('#ocr-pro-widget-copy');
           if (btn) { btn.textContent = 'Copied!'; setTimeout(function () { if (btn.isConnected) btn.textContent = 'Copy'; }, 1500); }
         }
-      }).catch(function () {});
+      };
+      try {
+        navigator.clipboard.writeText(text).then(onCopied).catch(function () {
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.cssText = 'position:fixed;opacity:0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          ta.remove();
+          onCopied();
+        });
+      } catch (_) {}
+    });
+
+    var hdBtn = widget.querySelector('#ocr-pro-widget-hd');
+    hdBtn.addEventListener('click', function () {
+      hdBtn.textContent = '...';
+      hdBtn.disabled = true;
+      chrome.runtime.sendMessage({ type: 'ocr:rerunHD', recordId: record.id }).catch(function () {
+        hdBtn.textContent = 'HD';
+        hdBtn.disabled = false;
+      });
     });
 
     widget.querySelector('#ocr-pro-widget-panel').addEventListener('click', function () {
@@ -58,6 +82,7 @@
       offsetX = e.clientX - widget.getBoundingClientRect().left;
       offsetY = e.clientY - widget.getBoundingClientRect().top;
       widget.style.transition = 'none';
+      clearTimeout(dismissTimer);
     });
 
     onMouseMove = function (e) {
@@ -68,10 +93,17 @@
       widget.style.top = (e.clientY - offsetY) + 'px';
     };
 
-    onMouseUp = function () { isDragging = false; };
+    onMouseUp = function () {
+      isDragging = false;
+      if (widget) widget.style.transition = '';
+      dismissTimer = setTimeout(removeWidget, 10000);
+    };
 
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
+
+    widget.addEventListener('mouseenter', function () { clearTimeout(dismissTimer); });
+    widget.addEventListener('mouseleave', function () { dismissTimer = setTimeout(removeWidget, 5000); });
 
     dismissTimer = setTimeout(removeWidget, 10000);
   }

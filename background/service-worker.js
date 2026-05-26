@@ -16,26 +16,73 @@ function dataUrlToBlob(dataUrl) {
   return new Blob([bytes], { type: mimeMatch?.[1] || 'image/png' });
 }
 
-// --- Context menus ---
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: 'ocr-image',
-    title: 'OCR this image',
-    contexts: ['image'],
-  });
+// --- Context menus + first-run setup ---
+chrome.runtime.onInstalled.addListener(async (details) => {
+  chrome.contextMenus.create({ id: 'ocr-image', title: 'OCR this image', contexts: ['image'] });
+  chrome.contextMenus.create({ id: 'ocr-open-panel', title: 'Open OCR Pro Panel', contexts: ['action'] });
+  chrome.contextMenus.create({ id: 'ocr-full-page', title: 'OCR Full Page', contexts: ['action'] });
+
+  if (details.reason === 'install') {
+    await chrome.storage.local.set({ ocrEngine: 'ai-vision' });
+  }
 });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === 'ocr-image' && info.srcUrl && tab) {
     await processImageUrl(info.srcUrl, tab.id, 'image');
   }
+  if (info.menuItemId === 'ocr-open-panel' && tab) {
+    await chrome.sidePanel.open({ tabId: tab.id });
+  }
+  if (info.menuItemId === 'ocr-full-page' && tab) {
+    await captureFullPage(tab.id, tab.windowId, tab.url);
+  }
 });
+
+// --- Single click icon = instant area select ---
+chrome.action.onClicked.addListener(async (tab) => {
+  if (!tab || tab.url?.startsWith('chrome://') || tab.url?.startsWith('chrome-extension://') || tab.url?.startsWith('edge://')) {
+    await chrome.sidePanel.open({ tabId: tab.id }).catch(() => {});
+    return;
+  }
+  try {
+    await ensureContentScript(tab.id);
+    sendToTab(tab.id, MSG.CAPTURE_AREA).catch(() => {});
+  } catch {
+    await chrome.sidePanel.open({ tabId: tab.id }).catch(() => {});
+  }
+});
+
+// --- Ensure content scripts are injected ---
+async function ensureContentScript(tabId) {
+  try {
+    await chrome.tabs.sendMessage(tabId, { type: 'ping' });
+    return;
+  } catch { /* not injected yet */ }
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    files: ['content/area-selector.js', 'content/floating-widget.js', 'content/content.js'],
+  });
+  await chrome.scripting.insertCSS({
+    target: { tabId },
+    files: ['content/content.css'],
+  });
+  for (let i = 0; i < 10; i++) {
+    try {
+      await chrome.tabs.sendMessage(tabId, { type: 'ping' });
+      return;
+    } catch { await new Promise(r => setTimeout(r, 50)); }
+  }
+}
 
 // --- Keyboard shortcuts ---
 chrome.commands.onCommand.addListener(async (command, tab) => {
   if (!tab) return;
   if (command === 'ocr-area-select') {
-    sendToTab(tab.id, MSG.CAPTURE_AREA).catch(() => {});
+    try {
+      await ensureContentScript(tab.id);
+      sendToTab(tab.id, MSG.CAPTURE_AREA).catch(() => {});
+    } catch { /* restricted page */ }
   }
   if (command === 'ocr-full-page') {
     await captureFullPage(tab.id, tab.windowId, tab.url);
@@ -45,6 +92,38 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
 // --- Core OCR pipeline ---
 async function captureFullPage(tabId, windowId, pageUrl) {
   try {
+    broadcastProgress('Extracting page text...', 0);
+
+    let htmlText = '';
+    try {
+      await ensureContentScript(tabId);
+      const resp = await chrome.tabs.sendMessage(tabId, { type: 'extract:pageText' });
+      htmlText = (resp?.text || '').trim();
+    } catch (_) {}
+
+    if (htmlText.length >= 20) {
+      let thumbnailData = null;
+      try {
+        const dataUrl = await chrome.tabs.captureVisibleTab(windowId, { format: 'png' });
+        if (dataUrl) thumbnailData = await imagePreprocessor.thumbnail(dataUrl);
+      } catch (_) {}
+
+      const record = {
+        sourceType: 'fullpage-html',
+        sourceUrl: pageUrl || '',
+        thumbnail: thumbnailData,
+        rawText: htmlText,
+        enhancedText: null,
+        language: 'html',
+        confidence: 100,
+        timestamp: Date.now(),
+      };
+      let saved = record;
+      try { saved = await historyDB.add(record); } catch (_) {}
+      broadcastResult(saved, tabId);
+      return;
+    }
+
     broadcastProgress('Capturing page...', 0);
     const dataUrl = await chrome.tabs.captureVisibleTab(windowId, { format: 'png' });
     if (!dataUrl || dataUrl.indexOf(',') === -1 || dataUrl.indexOf(',') === dataUrl.length - 1) {
@@ -72,29 +151,49 @@ async function runOcr(imageSource, sourceUrl, sourceType, sourceTabId) {
   try {
     broadcastProgress('Preprocessing...', 0.05);
 
-    const settings = await chrome.storage.local.get({ ocrLanguages: 'eng+tha' });
+    const settings = await chrome.storage.local.get({ ocrLanguages: 'eng+tha', ocrEngine: 'ai-vision' });
     const langs = settings.ocrLanguages;
+    const engine = settings.ocrEngine;
 
     let thumbnailData = null;
     try {
       thumbnailData = await imagePreprocessor.thumbnail(imageSource);
     } catch (_) { /* thumbnail is optional */ }
 
-    const preprocessed = await imagePreprocessor.preprocess(imageSource);
+    let result;
 
-    broadcastProgress('Running OCR...', 0.1);
+    if (engine === 'ai-vision') {
+      broadcastProgress('AI Vision reading...', 0.1);
+      const imageDataUrl = await imagePreprocessor.toDataUrl(imageSource);
+      const text = await aiProcessor.ocrVision(imageDataUrl);
+      result = { text, confidence: 99 };
+    } else {
+      const gentle = langs.includes('tha') || langs.includes('jpn') || langs.includes('chi_sim') || langs.includes('chi_tra') || langs.includes('kor') || langs.includes('ara') || langs.includes('hin');
+      const preprocessed = await imagePreprocessor.preprocess(imageSource, { gentle });
 
-    const onProgress = (progress) => {
-      broadcastProgress('Running OCR...', 0.1 + progress * 0.85);
-    };
+      broadcastProgress('Running OCR...', 0.1);
 
-    const result = await ocrEngine.recognize(preprocessed, langs, onProgress);
+      const onProgress = (progress) => {
+        broadcastProgress('Running OCR...', 0.1 + progress * 0.85);
+      };
+
+      result = await ocrEngine.recognize(preprocessed, langs, onProgress);
+    }
+
+    let cleanedText = result.text;
+    if (engine !== 'ai-vision') {
+      if (langs.includes('tha')) {
+        cleanedText = cleanThaiOcrText(cleanedText);
+      }
+      cleanedText = filterNoise(cleanedText);
+    }
+    cleanedText = cleanedText.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
 
     const recordData = {
       sourceType,
       sourceUrl: sourceUrl || '',
       thumbnail: thumbnailData,
-      rawText: result.text,
+      rawText: cleanedText,
       enhancedText: null,
       language: langs,
       confidence: result.confidence,
@@ -112,6 +211,43 @@ async function runOcr(imageSource, sourceUrl, sourceType, sourceTabId) {
   }
 }
 
+function cleanThaiOcrText(text) {
+  const lines = text.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const chars = lines[i].split('');
+    const out = [];
+    for (let j = 0; j < chars.length; j++) {
+      const c = chars[j];
+      if (c === ' ') {
+        const prev = chars[j - 1];
+        const next = chars[j + 1];
+        const isThai = ch => ch && ch.charCodeAt(0) >= 0x0E00 && ch.charCodeAt(0) <= 0x0E7F;
+        if (isThai(prev) && isThai(next)) continue;
+      }
+      if (/[ัิ-ฺ็-๎]/.test(c)) {
+        while (out.length && out[out.length - 1] === ' ') out.pop();
+      }
+      out.push(c);
+    }
+    lines[i] = out.join('');
+  }
+  return lines.join('\n');
+}
+
+function filterNoise(text) {
+  return text.split('\n').filter(line => {
+    const trimmed = line.trim();
+    if (!trimmed) return false;
+    if (trimmed.length <= 2) return false;
+    const readable = trimmed.replace(/[\s\p{P}\p{S}\d]/gu, '');
+    if (readable.length === 0 && trimmed.length > 0) return false;
+    const ratio = readable.length / trimmed.replace(/\s/g, '').length;
+    if (ratio < 0.3 && trimmed.length < 20) return false;
+    if (/^[\W\d\s]{1,10}$/.test(trimmed)) return false;
+    return true;
+  }).join('\n');
+}
+
 // --- Broadcast to all open UI ---
 function broadcastProgress(status, progress) {
   chrome.runtime.sendMessage({ type: MSG.OCR_PROGRESS, status, progress }).catch(() => {});
@@ -121,6 +257,7 @@ function broadcastResult(record, sourceTabId) {
   chrome.runtime.sendMessage({ type: MSG.OCR_RESULT, record }).catch(() => {});
   if (sourceTabId) {
     chrome.tabs.sendMessage(sourceTabId, { type: MSG.OCR_RESULT, record }).catch(() => {});
+    chrome.tabs.sendMessage(sourceTabId, { type: 'ocr:autoCopy', text: record.rawText }).catch(() => {});
   }
 }
 
@@ -165,10 +302,46 @@ onMessage({
     const tab = sender.tab;
     if (!tab) return;
     try {
-      broadcastProgress('Capturing area...', 0);
+      const htmlText = (msg.htmlText || '').trim();
+      const cleanHtml = htmlText.replace(/\s+/g, ' ').trim();
 
-      // Small delay to ensure overlay is fully removed before capture
-      await new Promise(r => setTimeout(r, 50));
+      if (cleanHtml.length >= 10) {
+        broadcastProgress('Extracting from page...', 0.5);
+
+        let thumbnailData = null;
+        try {
+          const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
+          let { x, y, w, h } = msg.rect;
+          w = Math.round(Math.abs(w)); h = Math.round(Math.abs(h));
+          if (dataUrl && w > 0 && h > 0) {
+            const bm = await createImageBitmap(dataUrlToBlob(dataUrl));
+            x = Math.max(0, Math.min(x, bm.width - 1));
+            y = Math.max(0, Math.min(y, bm.height - 1));
+            w = Math.min(w, bm.width - x); h = Math.min(h, bm.height - y);
+            const cv = new OffscreenCanvas(w, h);
+            cv.getContext('2d').drawImage(bm, x, y, w, h, 0, 0, w, h);
+            bm.close();
+            thumbnailData = await imagePreprocessor.thumbnail(await cv.convertToBlob({ type: 'image/png' }));
+          }
+        } catch (_) {}
+
+        const record = {
+          sourceType: 'area-html',
+          sourceUrl: tab.url || '',
+          thumbnail: thumbnailData,
+          rawText: htmlText,
+          enhancedText: null,
+          language: 'html',
+          confidence: 100,
+          timestamp: Date.now(),
+        };
+        let saved = record;
+        try { saved = await historyDB.add(record); } catch (_) {}
+        broadcastResult(saved, tab.id);
+        return;
+      }
+
+      broadcastProgress('Capturing area...', 0);
 
       const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
       if (!dataUrl || dataUrl.indexOf(',') === -1 || dataUrl.indexOf(',') === dataUrl.length - 1) {
@@ -176,7 +349,6 @@ onMessage({
       }
 
       let { x, y, w, h } = msg.rect;
-      // Normalize negative dimensions (right-to-left or bottom-to-top selection)
       if (w < 0) { x += w; w = -w; }
       if (h < 0) { y += h; h = -h; }
       w = Math.round(w);
@@ -185,7 +357,6 @@ onMessage({
 
       const bitmap = await createImageBitmap(dataUrlToBlob(dataUrl));
 
-      // Clamp to bitmap bounds
       x = Math.max(0, Math.min(x, bitmap.width - 1));
       y = Math.max(0, Math.min(y, bitmap.height - 1));
       w = Math.min(w, bitmap.width - x);
@@ -207,6 +378,35 @@ onMessage({
     }
   },
 
+  'ocr:rerunHD': async (msg, sender) => {
+    try {
+      const record = msg.recordId ? await historyDB.get(msg.recordId) : null;
+      const tab = sender.tab || (await getCurrentTab());
+      if (!tab) return;
+
+      broadcastProgress('AI Vision re-reading...', 0.1);
+      const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
+      const imageForAi = await imagePreprocessor.toDataUrl(dataUrl);
+      const text = await aiProcessor.ocrVision(imageForAi);
+
+      const hdRecord = {
+        sourceType: 'hd-rerun',
+        sourceUrl: tab.url || '',
+        thumbnail: record?.thumbnail || null,
+        rawText: text,
+        enhancedText: null,
+        language: 'ai-vision',
+        confidence: 99,
+        timestamp: Date.now(),
+      };
+      let saved = hdRecord;
+      try { saved = await historyDB.add(hdRecord); } catch (_) {}
+      broadcastResult(saved, tab.id);
+    } catch (err) {
+      broadcastError('HD OCR failed: ' + err.message);
+    }
+  },
+
   [MSG.AI_ENHANCE]: async (msg) => {
     try {
       const enhanced = await aiProcessor.enhance(msg.text);
@@ -221,7 +421,7 @@ onMessage({
 
   [MSG.OPEN_SIDEPANEL]: async (msg, sender) => {
     const tab = sender.tab || (await getCurrentTab());
-    if (tab) chrome.sidePanel.open({ tabId: tab.id });
+    if (tab) await chrome.sidePanel.open({ tabId: tab.id });
   },
 
   'history:getAll': async (msg) => {

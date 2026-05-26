@@ -52,6 +52,7 @@
   right: 20px;
   width: 320px;
   background: #fff;
+  color: #202124;
   border-radius: 12px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
   z-index: 2147483646;
@@ -82,7 +83,11 @@
   font-size: 16px;
   cursor: pointer;
   padding: 0 4px;
+  border-radius: 4px;
+  transition: opacity 150ms ease;
 }
+#ocr-pro-widget-close:hover { opacity: 0.7; }
+#ocr-pro-widget-close:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 
 #ocr-pro-widget-text {
   padding: 12px;
@@ -113,6 +118,9 @@
 }
 
 #ocr-pro-widget-actions button:hover { background: #e8eaed; }
+#ocr-pro-widget-hd { background: #1a73e8 !important; color: #fff !important; border-color: #1a73e8 !important; font-weight: 600; }
+#ocr-pro-widget-hd:hover { background: #1557b0 !important; }
+#ocr-pro-widget-hd:disabled { opacity: 0.6; cursor: wait; }
 
 @media (prefers-color-scheme: dark) {
   #ocr-pro-widget-actions button {

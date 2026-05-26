@@ -1,13 +1,32 @@
 let worker = null;
 let currentLangs = null;
 
+const LOCAL_LANG_PATH = chrome.runtime.getURL('vendor/tesseract/');
+const CDN_LANG_PATH = 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/';
+
+async function allLangsLocal(langs) {
+  const parts = langs.split('+');
+  for (const lang of parts) {
+    try {
+      const resp = await fetch(LOCAL_LANG_PATH + lang + '.traineddata.gz', { method: 'HEAD' });
+      if (!resp.ok) return false;
+    } catch { return false; }
+  }
+  return true;
+}
+
 async function initWorker(langs) {
   if (worker && currentLangs === langs) return worker;
   if (worker) await worker.terminate();
   currentLangs = langs;
+
+  let useLocal = false;
+  try { useLocal = await allLangsLocal(langs); } catch (_) {}
+
   worker = await Tesseract.createWorker(langs, 1, {
     workerPath: chrome.runtime.getURL('vendor/tesseract/worker.min.js'),
     corePath: chrome.runtime.getURL('vendor/tesseract/'),
+    langPath: useLocal ? LOCAL_LANG_PATH : CDN_LANG_PATH,
     workerBlobURL: false,
     logger: (info) => {
       if (info.status === 'recognizing text') {
@@ -18,8 +37,13 @@ async function initWorker(langs) {
       }
     },
   });
+  await worker.setParameters({
+    preserve_interword_spaces: '0',
+  });
   return worker;
 }
+
+chrome.runtime.sendMessage({ type: 'ocr:offscreenReady' }).catch(() => {});
 
 let busy = false;
 let busyTimer = null;

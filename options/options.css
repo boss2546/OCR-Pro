@@ -53,14 +53,5 @@
   border-radius: var(--radius-md);
 }
 
-kbd {
-  padding: 2px var(--spacing-sm);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-xs);
-  font-family: monospace;
-}
-
 .btn-danger { color: var(--color-error); }
 .btn-danger:hover { background: rgba(234, 67, 53, 0.1); }
