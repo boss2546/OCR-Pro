@@ -43,7 +43,8 @@ tabs.forEach(tab => {
     tabs.forEach(t => t.classList.remove('active'));
     tabContents.forEach(c => c.classList.remove('active'));
     tab.classList.add('active');
-    $(`#tab-${tab.dataset.tab}`).classList.add('active');
+    const target = $(`#tab-${tab.dataset.tab}`);
+    if (target) target.classList.add('active');
     if (tab.dataset.tab === 'history') loadHistory();
   });
 });
