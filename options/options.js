@@ -17,7 +17,7 @@ const PROVIDERS = {
     placeholder: 'sk-...',
   },
   anthropic: {
-    url: 'https://api.anthropic.com/v1/messages',
+    url: 'https://api.anthropic.com/v1/chat/completions',
     model: 'claude-sonnet-4-6',
     keyPage: 'https://console.anthropic.com/settings/keys',
     placeholder: 'sk-ant-...',
