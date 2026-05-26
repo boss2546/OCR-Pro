@@ -15,7 +15,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === 'ocr-image' && info.srcUrl) {
-    await processImageUrl(info.srcUrl, tab, 'image');
+    await processImageUrl(info.srcUrl, tab.id, 'image');
   }
 });
 
@@ -25,33 +25,33 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
     sendToTab(tab.id, MSG.CAPTURE_AREA);
   }
   if (command === 'ocr-full-page') {
-    await captureFullPage(tab);
+    await captureFullPage(tab.id, tab.windowId, tab.url);
   }
 });
 
 // --- Core OCR pipeline ---
-async function captureFullPage(tab) {
+async function captureFullPage(tabId, windowId, pageUrl) {
   try {
     broadcastProgress('Capturing page...', 0);
-    const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
-    await runOcr(dataUrl, tab.url, 'fullpage');
+    const dataUrl = await chrome.tabs.captureVisibleTab(windowId, { format: 'png' });
+    await runOcr(dataUrl, pageUrl, 'fullpage', tabId);
   } catch (err) {
     broadcastError(err.message);
   }
 }
 
-async function processImageUrl(url, tab, sourceType) {
+async function processImageUrl(url, tabId, sourceType) {
   try {
     broadcastProgress('Fetching image...', 0);
     const response = await fetch(url);
     const blob = await response.blob();
-    await runOcr(blob, tab?.url || url, sourceType);
+    await runOcr(blob, url, sourceType, tabId);
   } catch (err) {
     broadcastError(err.message);
   }
 }
 
-async function runOcr(imageSource, sourceUrl, sourceType) {
+async function runOcr(imageSource, sourceUrl, sourceType, sourceTabId) {
   try {
     broadcastProgress('Preprocessing...', 0.05);
 
@@ -67,12 +67,11 @@ async function runOcr(imageSource, sourceUrl, sourceType) {
 
     broadcastProgress('Running OCR...', 0.1);
 
-    const unsubProgress = ocrEngine.onProgress((data) => {
-      broadcastProgress('Running OCR...', 0.1 + data.progress * 0.85);
-    });
+    const onProgress = (progress) => {
+      broadcastProgress('Running OCR...', 0.1 + progress * 0.85);
+    };
 
-    const result = await ocrEngine.recognize(preprocessed, langs);
-    unsubProgress();
+    const result = await ocrEngine.recognize(preprocessed, langs, onProgress);
 
     const record = await historyDB.add({
       sourceType,
@@ -84,7 +83,7 @@ async function runOcr(imageSource, sourceUrl, sourceType) {
       confidence: result.confidence,
     });
 
-    broadcastResult(record);
+    broadcastResult(record, sourceTabId);
   } catch (err) {
     broadcastError(err.message);
   }
@@ -95,11 +94,10 @@ function broadcastProgress(status, progress) {
   chrome.runtime.sendMessage({ type: MSG.OCR_PROGRESS, status, progress }).catch(() => {});
 }
 
-async function broadcastResult(record) {
+function broadcastResult(record, sourceTabId) {
   chrome.runtime.sendMessage({ type: MSG.OCR_RESULT, record }).catch(() => {});
-  const tab = await getCurrentTab();
-  if (tab) {
-    chrome.tabs.sendMessage(tab.id, { type: MSG.OCR_RESULT, record }).catch(() => {});
+  if (sourceTabId) {
+    chrome.tabs.sendMessage(sourceTabId, { type: MSG.OCR_RESULT, record }).catch(() => {});
   }
 }
 
@@ -116,7 +114,7 @@ async function getCurrentTab() {
 onMessage({
   [MSG.CAPTURE_FULLPAGE]: async (msg, sender) => {
     const tab = sender.tab || (await getCurrentTab());
-    if (tab) await captureFullPage(tab);
+    if (tab) await captureFullPage(tab.id, tab.windowId, tab.url);
   },
 
   [MSG.CAPTURE_IMAGE]: async (msg) => {
@@ -128,12 +126,12 @@ onMessage({
   },
 
   [MSG.CAPTURE_UPLOAD]: async (msg) => {
-    await runOcr(msg.imageData, msg.filename || 'upload', 'upload');
+    await runOcr(msg.imageData, msg.filename || 'upload', 'upload', null);
   },
 
   [MSG.CAPTURE_AREA]: async (msg, sender) => {
     if (msg.imageData) {
-      await runOcr(msg.imageData, sender.tab?.url || '', 'area');
+      await runOcr(msg.imageData, sender.tab?.url || '', 'area', sender.tab?.id);
     } else {
       const tab = sender.tab || (await getCurrentTab());
       if (tab) sendToTab(tab.id, MSG.CAPTURE_AREA);
@@ -145,6 +143,10 @@ onMessage({
     if (!tab) return;
     try {
       broadcastProgress('Capturing area...', 0);
+
+      // Small delay to ensure overlay is fully removed before capture
+      await new Promise(r => setTimeout(r, 50));
+
       const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
 
       const { x, y, w, h } = msg.rect;
@@ -157,7 +159,7 @@ onMessage({
       ctx.drawImage(bitmap, x, y, w, h, 0, 0, w, h);
       const croppedBlob = await canvas.convertToBlob({ type: 'image/png' });
 
-      await runOcr(croppedBlob, tab.url, 'area');
+      await runOcr(croppedBlob, tab.url, 'area', tab.id);
     } catch (err) {
       broadcastError(err.message);
     }

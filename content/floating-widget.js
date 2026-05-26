@@ -1,6 +1,8 @@
 (function () {
   var widget = null;
   var dismissTimer = null;
+  var onMouseMove = null;
+  var onMouseUp = null;
 
   function escapeHtml(text) {
     var div = document.createElement('div');
@@ -42,29 +44,37 @@
       removeWidget();
     });
 
-    // Make draggable
+    // Draggable — with cleanup
     var header = widget.querySelector('#ocr-pro-widget-header');
     var isDragging = false, offsetX, offsetY;
+
     header.addEventListener('mousedown', function (e) {
       isDragging = true;
       offsetX = e.clientX - widget.getBoundingClientRect().left;
       offsetY = e.clientY - widget.getBoundingClientRect().top;
       widget.style.transition = 'none';
     });
-    document.addEventListener('mousemove', function (e) {
+
+    onMouseMove = function (e) {
       if (!isDragging) return;
       widget.style.right = 'auto';
       widget.style.bottom = 'auto';
       widget.style.left = (e.clientX - offsetX) + 'px';
       widget.style.top = (e.clientY - offsetY) + 'px';
-    });
-    document.addEventListener('mouseup', function () { isDragging = false; });
+    };
+
+    onMouseUp = function () { isDragging = false; };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
 
     dismissTimer = setTimeout(removeWidget, 10000);
   }
 
   function removeWidget() {
     clearTimeout(dismissTimer);
+    if (onMouseMove) { document.removeEventListener('mousemove', onMouseMove); onMouseMove = null; }
+    if (onMouseUp) { document.removeEventListener('mouseup', onMouseUp); onMouseUp = null; }
     if (widget) { widget.remove(); widget = null; }
   }
 

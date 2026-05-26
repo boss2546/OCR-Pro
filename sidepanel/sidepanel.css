@@ -169,3 +169,6 @@
 }
 
 .history-actions { display: flex; align-items: center; }
+
+.btn-delete { color: var(--color-error); border-color: transparent; background: none; }
+.btn-delete:hover { background: rgba(234, 67, 53, 0.1); }
