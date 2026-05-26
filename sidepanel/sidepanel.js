@@ -1,0 +1,212 @@
+import { MSG, send } from '../lib/messaging.js';
+import exportManager from '../lib/export-manager.js';
+
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
+
+// --- Theme ---
+chrome.storage.local.get({ theme: 'system' }, (s) => {
+  if (s.theme !== 'system') document.documentElement.setAttribute('data-theme', s.theme);
+});
+
+// --- Elements ---
+const tabs = $$('.tab');
+const tabContents = $$('.tab-content');
+const resultEmpty = $('#result-empty');
+const resultContent = $('#result-content');
+const resultText = $('#result-text');
+const confidenceBadge = $('#confidence-badge');
+const metaSource = $('#meta-source');
+const btnAiEnhance = $('#btn-ai-enhance');
+const aiSpinner = $('#ai-spinner');
+const aiProgress = $('#ai-progress');
+const btnCopy = $('#btn-copy');
+const btnDownloadTxt = $('#btn-download-txt');
+const btnDownloadMd = $('#btn-download-md');
+const diffCheckbox = $('#diff-checkbox');
+const textDisplay = $('#text-display');
+const diffDisplay = $('#diff-display');
+const diffOriginal = $('#diff-original');
+const diffEnhanced = $('#diff-enhanced');
+const btnAcceptAi = $('#btn-accept-ai');
+const btnRejectAi = $('#btn-reject-ai');
+const historySearch = $('#history-search');
+const historyList = $('#history-list');
+const toast = $('#toast');
+
+let currentRecord = null;
+let enhancedText = null;
+
+// --- Tabs ---
+tabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    tabs.forEach(t => t.classList.remove('active'));
+    tabContents.forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    $(`#tab-${tab.dataset.tab}`).classList.add('active');
+    if (tab.dataset.tab === 'history') loadHistory();
+  });
+});
+
+// --- Show result ---
+function showResult(record) {
+  currentRecord = record;
+  enhancedText = record.enhancedText || null;
+  resultEmpty.hidden = true;
+  resultContent.hidden = false;
+  resultText.value = enhancedText || record.rawText;
+
+  const conf = Math.round(record.confidence);
+  confidenceBadge.textContent = `${conf}% confidence`;
+  confidenceBadge.className = `badge ${conf >= 80 ? 'badge-success' : conf >= 50 ? 'badge-warning' : 'badge-error'}`;
+  metaSource.textContent = `${record.sourceType} • ${new Date(record.timestamp).toLocaleString()}`;
+
+  diffCheckbox.checked = false;
+  textDisplay.hidden = false;
+  diffDisplay.hidden = true;
+}
+
+// --- AI Enhance ---
+btnAiEnhance.addEventListener('click', async () => {
+  if (!currentRecord) return;
+  aiSpinner.hidden = false;
+  aiProgress.hidden = false;
+  btnAiEnhance.disabled = true;
+
+  try {
+    const response = await send(MSG.AI_ENHANCE, {
+      text: resultText.value || currentRecord.rawText,
+      recordId: currentRecord.id,
+    });
+    if (response.error) {
+      showToast('AI Error: ' + response.error);
+      return;
+    }
+    enhancedText = response.enhanced;
+    resultText.value = enhancedText;
+    diffOriginal.textContent = currentRecord.rawText;
+    diffEnhanced.textContent = enhancedText;
+    showToast('AI enhancement complete!');
+  } catch (err) {
+    showToast('Error: ' + err.message);
+  } finally {
+    aiSpinner.hidden = true;
+    aiProgress.hidden = true;
+    btnAiEnhance.disabled = false;
+  }
+});
+
+// --- Toolbar ---
+btnCopy.addEventListener('click', async () => {
+  if (!resultText.value) return;
+  await exportManager.copyToClipboard(resultText.value);
+  showToast('Copied!');
+});
+
+btnDownloadTxt.addEventListener('click', () => exportManager.downloadTxt(resultText.value));
+btnDownloadMd.addEventListener('click', () => exportManager.downloadMd(resultText.value));
+
+// --- Diff ---
+diffCheckbox.addEventListener('change', () => {
+  if (diffCheckbox.checked && enhancedText) {
+    textDisplay.hidden = true;
+    diffDisplay.hidden = false;
+    diffOriginal.textContent = currentRecord.rawText;
+    diffEnhanced.textContent = enhancedText;
+  } else {
+    textDisplay.hidden = false;
+    diffDisplay.hidden = true;
+  }
+});
+
+btnAcceptAi.addEventListener('click', () => {
+  resultText.value = enhancedText;
+  diffCheckbox.checked = false;
+  textDisplay.hidden = false;
+  diffDisplay.hidden = true;
+  showToast('AI text accepted');
+});
+
+btnRejectAi.addEventListener('click', () => {
+  enhancedText = null;
+  resultText.value = currentRecord.rawText;
+  diffCheckbox.checked = false;
+  textDisplay.hidden = false;
+  diffDisplay.hidden = true;
+  showToast('Reverted to original');
+});
+
+// --- History ---
+async function loadHistory() {
+  try {
+    const records = await send('history:getAll', { limit: 50 });
+    renderHistory(records || []);
+  } catch { renderHistory([]); }
+}
+
+let searchTimer;
+historySearch.addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(async () => {
+    const q = historySearch.value.trim();
+    if (!q) { loadHistory(); return; }
+    const records = await send('history:search', { query: q });
+    renderHistory(records || []);
+  }, 300);
+});
+
+function renderHistory(records) {
+  if (!records.length) {
+    historyList.innerHTML = '<p class="history-empty">No history yet</p>';
+    return;
+  }
+  historyList.innerHTML = records.map(r => `
+    <div class="history-item" data-id="${r.id}">
+      ${r.thumbnail ? `<img class="history-thumb" src="${r.thumbnail}" alt="">` : '<div class="history-thumb"></div>'}
+      <div class="history-info">
+        <div class="history-date">${new Date(r.timestamp).toLocaleString()} • ${r.sourceType}</div>
+        <div class="history-preview">${esc((r.enhancedText || r.rawText || '').slice(0, 100))}</div>
+      </div>
+      <div class="history-actions">
+        <button class="btn btn-sm btn-delete" data-id="${r.id}" title="Delete">✕</button>
+      </div>
+    </div>
+  `).join('');
+
+  historyList.querySelectorAll('.history-item').forEach(item => {
+    item.addEventListener('click', async (e) => {
+      if (e.target.closest('.btn-delete')) return;
+      const record = await send('history:get', { id: Number(item.dataset.id) });
+      if (record) { showResult(record); tabs[0].click(); }
+    });
+  });
+
+  historyList.querySelectorAll('.btn-delete').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await send('history:delete', { id: Number(btn.dataset.id) });
+      loadHistory();
+      showToast('Deleted');
+    });
+  });
+}
+
+function esc(text) {
+  const d = document.createElement('div');
+  d.textContent = text;
+  return d.innerHTML;
+}
+
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+// --- Listen for new results ---
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.type === MSG.OCR_RESULT && msg.record) showResult(msg.record);
+  if (msg.type === MSG.OCR_ERROR) showToast('OCR Error: ' + msg.error);
+});
+
+loadHistory();

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="../styles/shared.css">
+  <link rel="stylesheet" href="sidepanel.css">
+  <title>OCR Pro</title>
+</head>
+<body>
+  <div class="panel">
+    <div class="panel-tabs">
+      <button class="tab active" data-tab="result">Result</button>
+      <button class="tab" data-tab="history">History</button>
+    </div>
+
+    <!-- Result Tab -->
+    <div class="tab-content active" id="tab-result">
+      <div class="result-empty" id="result-empty">
+        <svg width="48" height="48" viewBox="0 0 16 16" fill="var(--color-text-secondary)"><path d="M4.406 1.342A5.53 5.53 0 018 0c2.69 0 4.923 2 5.166 4.579C14.758 4.804 16 6.137 16 7.773 16 9.569 14.502 11 12.687 11H10a.5.5 0 010-1h2.688C13.979 10 15 8.988 15 7.773c0-1.216-1.02-2.228-2.313-2.228h-.5v-.5C12.188 2.825 10.328 1 8 1a4.53 4.53 0 00-2.941 1.1c-.757.652-1.153 1.438-1.153 2.055v.448l-.445.049C2.064 4.805 1 5.952 1 7.318 1 8.785 2.23 10 3.781 10H6a.5.5 0 010 1H3.781C1.708 11 0 9.366 0 7.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383z"/></svg>
+        <p>No OCR result yet.<br>Use the popup or press <kbd>Ctrl+Shift+O</kbd> to start.</p>
+      </div>
+
+      <div class="result-content" id="result-content" hidden>
+        <div class="result-meta" id="result-meta">
+          <span class="badge" id="confidence-badge"></span>
+          <span class="meta-text" id="meta-source"></span>
+        </div>
+
+        <div class="result-toolbar">
+          <button class="btn btn-sm btn-success" id="btn-ai-enhance">
+            <span class="spinner" id="ai-spinner" hidden></span>
+            AI Enhance
+          </button>
+          <button class="btn btn-sm" id="btn-copy">Copy</button>
+          <button class="btn btn-sm" id="btn-download-txt">TXT</button>
+          <button class="btn btn-sm" id="btn-download-md">MD</button>
+          <label class="btn btn-sm" style="cursor:pointer">
+            <input type="checkbox" id="diff-checkbox" style="margin-right:4px"> Diff
+          </label>
+        </div>
+
+        <div class="result-progress" id="ai-progress" hidden>
+          <div class="progress-bar">
+            <div class="progress-bar-fill" style="width:100%;animation:pulse 1.5s ease-in-out infinite"></div>
+          </div>
+          <p class="status-text">AI is enhancing text...</p>
+        </div>
+
+        <div id="text-display">
+          <textarea class="textarea" id="result-text" rows="15"></textarea>
+        </div>
+
+        <div id="diff-display" hidden>
+          <div class="diff-container">
+            <div class="diff-col">
+              <h4>Original</h4>
+              <pre class="diff-text" id="diff-original"></pre>
+            </div>
+            <div class="diff-col">
+              <h4>AI Enhanced</h4>
+              <pre class="diff-text" id="diff-enhanced"></pre>
+            </div>
+          </div>
+          <div class="diff-actions">
+            <button class="btn btn-sm btn-success" id="btn-accept-ai">Accept AI</button>
+            <button class="btn btn-sm" id="btn-reject-ai">Keep Original</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- History Tab -->
+    <div class="tab-content" id="tab-history">
+      <div class="history-search">
+        <input type="text" class="input" id="history-search" placeholder="Search history...">
+      </div>
+      <div class="history-list" id="history-list">
+        <p class="history-empty">No history yet</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="sidepanel.js" type="module"></script>
+</body>
+</html>

@@ -1,0 +1,112 @@
+#ocr-pro-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.3);
+  cursor: crosshair;
+  z-index: 2147483647;
+  user-select: none;
+}
+
+#ocr-pro-instructions {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: system-ui, sans-serif;
+  pointer-events: none;
+}
+
+#ocr-pro-selection {
+  position: absolute;
+  display: none;
+  border: 2px solid #4285f4;
+  background: rgba(66, 133, 244, 0.15);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+/* --- Floating Widget --- */
+#ocr-pro-widget {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 320px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  z-index: 2147483646;
+  font-family: system-ui, sans-serif;
+  overflow: hidden;
+}
+
+@media (prefers-color-scheme: dark) {
+  #ocr-pro-widget { background: #292a2d; color: #e8eaed; }
+}
+
+#ocr-pro-widget-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #4285f4;
+  color: #fff;
+  cursor: move;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+#ocr-pro-widget-close {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+#ocr-pro-widget-text {
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  max-height: 100px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+#ocr-pro-widget-actions {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px 12px;
+}
+
+#ocr-pro-widget-actions button {
+  flex: 1;
+  padding: 6px 12px;
+  border: 1px solid #dadce0;
+  border-radius: 6px;
+  background: #f8f9fa;
+  color: #202124;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+}
+
+#ocr-pro-widget-actions button:hover { background: #e8eaed; }
+
+@media (prefers-color-scheme: dark) {
+  #ocr-pro-widget-actions button {
+    background: #35363a;
+    color: #e8eaed;
+    border-color: #5f6368;
+  }
+  #ocr-pro-widget-actions button:hover { background: #404144; }
+}
