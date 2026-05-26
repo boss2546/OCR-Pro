@@ -20,7 +20,7 @@ const toast = $('#toast');
 // --- Load settings ---
 async function load() {
   const s = await chrome.storage.local.get({
-    ocrEngine: 'ai-vision',
+    ocrEngine: 'tesseract',
     ocrLanguages: 'eng+tha',
     aiApiUrl: '',
     aiApiKey: '',
@@ -38,6 +38,7 @@ async function load() {
   const radio = document.querySelector(`input[name="theme"][value="${s.theme}"]`);
   if (radio) radio.checked = true;
   applyTheme(s.theme);
+  checkEngineWarning();
 }
 
 function save(key, value) {
@@ -45,7 +46,15 @@ function save(key, value) {
 }
 
 // --- Auto-save inputs ---
-ocrEngineSelect.addEventListener('change', () => save('ocrEngine', ocrEngineSelect.value));
+const engineWarning = $('#engine-warning');
+function checkEngineWarning() {
+  if (ocrEngineSelect.value === 'ai-vision' && (!aiUrl.value || !aiKey.value || !aiModel.value)) {
+    engineWarning.hidden = false;
+  } else {
+    engineWarning.hidden = true;
+  }
+}
+ocrEngineSelect.addEventListener('change', () => { save('ocrEngine', ocrEngineSelect.value); checkEngineWarning(); });
 langSelect.addEventListener('change', () => save('ocrLanguages', langSelect.value));
 
 function autoSave(key, el) {

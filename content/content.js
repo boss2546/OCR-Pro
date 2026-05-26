@@ -25,6 +25,9 @@
         window.__ocrProWidget.showWidget(msg.record);
       }
     }
+    if (msg.type === 'ocr:error' && msg.error) {
+      showErrorNotification(msg.error);
+    }
     if (msg.type === 'ocr:autoCopy' && msg.text) {
       navigator.clipboard.writeText(msg.text).then(function () {
         showCopyNotification();
@@ -42,5 +45,17 @@
     document.body.appendChild(n);
     setTimeout(function () { n.style.opacity = '0'; }, 2000);
     setTimeout(function () { n.remove(); }, 2500);
+  }
+
+  function showErrorNotification(msg) {
+    var n = document.getElementById('ocr-pro-error-toast');
+    if (n) n.remove();
+    n = document.createElement('div');
+    n.id = 'ocr-pro-error-toast';
+    n.textContent = 'OCR Error: ' + msg;
+    n.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#ea4335;color:#fff;padding:8px 20px;border-radius:8px;font:13px system-ui,sans-serif;z-index:2147483647;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:opacity 0.3s;pointer-events:none;max-width:400px;text-align:center;';
+    document.body.appendChild(n);
+    setTimeout(function () { n.style.opacity = '0'; }, 4000);
+    setTimeout(function () { n.remove(); }, 4500);
   }
 })();

@@ -23,7 +23,8 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   chrome.contextMenus.create({ id: 'ocr-full-page', title: 'OCR Full Page', contexts: ['action'] });
 
   if (details.reason === 'install') {
-    await chrome.storage.local.set({ ocrEngine: 'ai-vision' });
+    await chrome.storage.local.set({ ocrEngine: 'tesseract' });
+    chrome.runtime.openOptionsPage();
   }
 });
 
@@ -131,7 +132,7 @@ async function captureFullPage(tabId, windowId, pageUrl) {
     }
     await runOcr(dataUrl, pageUrl, 'fullpage', tabId);
   } catch (err) {
-    broadcastError(err.message);
+    broadcastError(err.message, tabId);
   }
 }
 
@@ -143,7 +144,7 @@ async function processImageUrl(url, tabId, sourceType) {
     const blob = await response.blob();
     await runOcr(blob, url, sourceType, tabId);
   } catch (err) {
-    broadcastError(err.message);
+    broadcastError(err.message, tabId);
   }
 }
 
@@ -151,7 +152,7 @@ async function runOcr(imageSource, sourceUrl, sourceType, sourceTabId) {
   try {
     broadcastProgress('Preprocessing...', 0.05);
 
-    const settings = await chrome.storage.local.get({ ocrLanguages: 'eng+tha', ocrEngine: 'ai-vision' });
+    const settings = await chrome.storage.local.get({ ocrLanguages: 'eng+tha', ocrEngine: 'tesseract' });
     const langs = settings.ocrLanguages;
     const engine = settings.ocrEngine;
 
@@ -163,21 +164,17 @@ async function runOcr(imageSource, sourceUrl, sourceType, sourceTabId) {
     let result;
 
     if (engine === 'ai-vision') {
-      broadcastProgress('AI Vision reading...', 0.1);
-      const imageDataUrl = await imagePreprocessor.toDataUrl(imageSource);
-      const text = await aiProcessor.ocrVision(imageDataUrl);
-      result = { text, confidence: 99 };
+      try {
+        broadcastProgress('AI Vision reading...', 0.1);
+        const imageDataUrl = await imagePreprocessor.toDataUrl(imageSource);
+        const text = await aiProcessor.ocrVision(imageDataUrl);
+        result = { text, confidence: 99 };
+      } catch (aiErr) {
+        broadcastProgress('AI failed, using Tesseract...', 0.1);
+        result = await runTesseract(imageSource, langs);
+      }
     } else {
-      const gentle = langs.includes('tha') || langs.includes('jpn') || langs.includes('chi_sim') || langs.includes('chi_tra') || langs.includes('kor') || langs.includes('ara') || langs.includes('hin');
-      const preprocessed = await imagePreprocessor.preprocess(imageSource, { gentle });
-
-      broadcastProgress('Running OCR...', 0.1);
-
-      const onProgress = (progress) => {
-        broadcastProgress('Running OCR...', 0.1 + progress * 0.85);
-      };
-
-      result = await ocrEngine.recognize(preprocessed, langs, onProgress);
+      result = await runTesseract(imageSource, langs);
     }
 
     let cleanedText = result.text;
@@ -207,8 +204,16 @@ async function runOcr(imageSource, sourceUrl, sourceType, sourceTabId) {
 
     broadcastResult(record, sourceTabId);
   } catch (err) {
-    broadcastError(err.message);
+    broadcastError(err.message, sourceTabId);
   }
+}
+
+async function runTesseract(imageSource, langs) {
+  const gentle = langs.includes('tha') || langs.includes('jpn') || langs.includes('chi_sim') || langs.includes('chi_tra') || langs.includes('kor') || langs.includes('ara') || langs.includes('hin');
+  const preprocessed = await imagePreprocessor.preprocess(imageSource, { gentle });
+  broadcastProgress('Running OCR...', 0.1);
+  const onProgress = (progress) => { broadcastProgress('Running OCR...', 0.1 + progress * 0.85); };
+  return ocrEngine.recognize(preprocessed, langs, onProgress);
 }
 
 function cleanThaiOcrText(text) {
@@ -261,8 +266,11 @@ function broadcastResult(record, sourceTabId) {
   }
 }
 
-function broadcastError(error) {
+function broadcastError(error, sourceTabId) {
   chrome.runtime.sendMessage({ type: MSG.OCR_ERROR, error }).catch(() => {});
+  if (sourceTabId) {
+    chrome.tabs.sendMessage(sourceTabId, { type: MSG.OCR_ERROR, error }).catch(() => {});
+  }
 }
 
 async function getCurrentTab() {
@@ -374,16 +382,14 @@ onMessage({
 
       await runOcr(croppedBlob, tab.url, 'area', tab.id);
     } catch (err) {
-      broadcastError(err.message);
+      broadcastError(err.message, tab?.id);
     }
   },
 
   'ocr:rerunHD': async (msg, sender) => {
+    const tab = sender.tab || (await getCurrentTab());
     try {
-      const record = msg.recordId ? await historyDB.get(msg.recordId) : null;
-      const tab = sender.tab || (await getCurrentTab());
-      if (!tab) return;
-
+      if (!tab) throw new Error('No active tab');
       broadcastProgress('AI Vision re-reading...', 0.1);
       const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
       const imageForAi = await imagePreprocessor.toDataUrl(dataUrl);
@@ -392,7 +398,7 @@ onMessage({
       const hdRecord = {
         sourceType: 'hd-rerun',
         sourceUrl: tab.url || '',
-        thumbnail: record?.thumbnail || null,
+        thumbnail: null,
         rawText: text,
         enhancedText: null,
         language: 'ai-vision',
@@ -403,7 +409,7 @@ onMessage({
       try { saved = await historyDB.add(hdRecord); } catch (_) {}
       broadcastResult(saved, tab.id);
     } catch (err) {
-      broadcastError('HD OCR failed: ' + err.message);
+      broadcastError('HD: ' + err.message, tab?.id);
     }
   },
 
