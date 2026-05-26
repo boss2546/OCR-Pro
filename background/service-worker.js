@@ -20,6 +20,7 @@ function dataUrlToBlob(dataUrl) {
 
 // --- Context menus + first-run setup ---
 chrome.runtime.onInstalled.addListener(async (details) => {
+  await chrome.contextMenus.removeAll();
   chrome.contextMenus.create({ id: 'ocr-image', title: 'OCR this image', contexts: ['image'] });
   chrome.contextMenus.create({ id: 'ocr-open-panel', title: 'Open OCR Pro Panel', contexts: ['action'] });
   chrome.contextMenus.create({ id: 'ocr-full-page', title: 'OCR Full Page', contexts: ['action'] });
