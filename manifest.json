@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "OCR Pro",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Powerful client-side OCR with AI text correction",
   "icons": {
     "16": "icons/icon16.png",
