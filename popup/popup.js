@@ -94,8 +94,9 @@ btnCopyResult.addEventListener('click', async () => {
   showToast('Copied!');
 });
 
-btnOpenPanel.addEventListener('click', () => {
-  send(MSG.OPEN_SIDEPANEL);
+btnOpenPanel.addEventListener('click', async () => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tab) await chrome.sidePanel.open({ tabId: tab.id });
   window.close();
 });
 
