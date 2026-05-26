@@ -9,9 +9,6 @@ Chrome Extension สำหรับ OCR ข้อความจากรูป�
 3. กด **Load unpacked** → เลือกโฟลเดอร์ `OCR/` นี้
 4. Extension จะปรากฏพร้อมใช้งาน
 
-### สร้าง Icon จริง (ครั้งแรก)
-เปิดไฟล์ `generate-icons.html` ใน Chrome → มันจะดาวน์โหลด icon 3 ไฟล์ → ย้ายไปโฟลเดอร์ `icons/` → ลบ `generate-icons.html`
-
 ## วิธีใช้งาน
 
 ### OCR แบบต่างๆ

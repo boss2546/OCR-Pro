@@ -99,8 +99,10 @@ btnAiEnhance.addEventListener('click', async () => {
 // --- Toolbar ---
 btnCopy.addEventListener('click', async () => {
   if (!resultText.value) return;
-  await exportManager.copyToClipboard(resultText.value);
-  showToast('Copied!');
+  try {
+    await exportManager.copyToClipboard(resultText.value);
+    showToast('Copied!');
+  } catch { showToast('Copy failed'); }
 });
 
 btnDownloadTxt.addEventListener('click', () => {
@@ -223,17 +225,21 @@ function renderHistory(records) {
   historyList.querySelectorAll('.history-item').forEach(item => {
     item.addEventListener('click', async (e) => {
       if (e.target.closest('.btn-delete')) return;
-      const record = await send('history:get', { id: Number(item.dataset.id) });
-      if (record) { showResult(record); tabs[0].click(); }
+      try {
+        const record = await send('history:get', { id: Number(item.dataset.id) });
+        if (record) { showResult(record); tabs[0].click(); }
+      } catch { showToast('Failed to load record'); }
     });
   });
 
   historyList.querySelectorAll('.btn-delete').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      await send('history:delete', { id: Number(btn.dataset.id) });
-      loadHistory();
-      showToast('Deleted');
+      try {
+        await send('history:delete', { id: Number(btn.dataset.id) });
+        loadHistory();
+        showToast('Deleted');
+      } catch { showToast('Failed to delete'); }
     });
   });
 }

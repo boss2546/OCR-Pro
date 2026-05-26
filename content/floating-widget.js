@@ -41,7 +41,7 @@
     });
 
     widget.querySelector('#ocr-pro-widget-panel').addEventListener('click', function () {
-      chrome.runtime.sendMessage({ type: 'ui:open-sidepanel' });
+      chrome.runtime.sendMessage({ type: 'ui:open-sidepanel' }).catch(function () {});
       removeWidget();
     });
 

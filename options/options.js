@@ -133,8 +133,10 @@ btnExport.addEventListener('click', async () => {
 
 btnClear.addEventListener('click', async () => {
   if (!confirm('Delete all OCR history? This cannot be undone.')) return;
-  await send('history:clearAll');
-  showToast('History cleared');
+  try {
+    await send('history:clearAll');
+    showToast('History cleared');
+  } catch { showToast('Failed to clear history'); }
 });
 
 let toastTimer;

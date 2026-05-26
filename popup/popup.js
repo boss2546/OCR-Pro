@@ -45,7 +45,7 @@ btnArea.addEventListener('click', async () => {
 });
 
 btnFullpage.addEventListener('click', () => {
-  send(MSG.CAPTURE_FULLPAGE);
+  send(MSG.CAPTURE_FULLPAGE).catch(() => {});
   showStatus('Capturing page...', 0);
 });
 
@@ -74,7 +74,8 @@ function processFile(file) {
   }
   showStatus('Reading file...', 0);
   const reader = new FileReader();
-  reader.onload = () => send(MSG.CAPTURE_UPLOAD, { imageData: reader.result, filename: file.name });
+  reader.onload = () => send(MSG.CAPTURE_UPLOAD, { imageData: reader.result, filename: file.name }).catch(() => {});
+  reader.onerror = () => { hideStatus(); showToast('Failed to read file'); };
   reader.readAsDataURL(file);
 }
 
@@ -83,20 +84,24 @@ btnUrlOcr.addEventListener('click', () => {
   const url = urlInput.value.trim();
   if (!url) return;
   try { new URL(url); } catch { showToast('Invalid URL'); return; }
-  send(MSG.CAPTURE_URL, { url });
+  send(MSG.CAPTURE_URL, { url }).catch(() => {});
   showStatus('Fetching image...', 0);
 });
 
 // --- Result actions ---
 btnCopyResult.addEventListener('click', async () => {
   if (!lastResult) return;
-  await navigator.clipboard.writeText(lastResult);
-  showToast('Copied!');
+  try {
+    await navigator.clipboard.writeText(lastResult);
+    showToast('Copied!');
+  } catch { showToast('Copy failed'); }
 });
 
 btnOpenPanel.addEventListener('click', async () => {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (tab) await chrome.sidePanel.open({ tabId: tab.id });
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab) await chrome.sidePanel.open({ tabId: tab.id });
+  } catch { /* ignore */ }
   window.close();
 });
 

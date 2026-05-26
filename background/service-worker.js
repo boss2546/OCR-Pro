@@ -151,7 +151,7 @@ onMessage({
       await runOcr(msg.imageData, sender.tab?.url || '', 'area', sender.tab?.id);
     } else {
       const tab = sender.tab || (await getCurrentTab());
-      if (tab) sendToTab(tab.id, MSG.CAPTURE_AREA);
+      if (tab) sendToTab(tab.id, MSG.CAPTURE_AREA).catch(() => {});
     }
   },
 
