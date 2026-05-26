@@ -46,8 +46,8 @@
   "commands": {
     "ocr-area-select": {
       "suggested_key": {
-        "default": "Ctrl+Shift+O",
-        "mac": "Command+Shift+O"
+        "default": "Ctrl+Shift+U",
+        "mac": "Command+Shift+U"
       },
       "description": "Select area to OCR"
     },
@@ -58,11 +58,5 @@
       },
       "description": "OCR full page"
     }
-  },
-  "web_accessible_resources": [
-    {
-      "resources": ["vendor/tesseract/*"],
-      "matches": ["<all_urls>"]
-    }
-  ]
+  }
 }

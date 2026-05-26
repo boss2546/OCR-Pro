@@ -21,6 +21,13 @@ async function initWorker(langs) {
 }
 
 let busy = false;
+let busyTimer = null;
+
+function resetBusy() {
+  busy = false;
+  clearTimeout(busyTimer);
+  busyTimer = null;
+}
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type !== 'ocr:recognize') return false;
@@ -30,6 +37,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return false;
   }
   busy = true;
+  busyTimer = setTimeout(resetBusy, 120000);
 
   (async () => {
     try {
@@ -42,7 +50,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     } catch (err) {
       sendResponse({ error: err.message });
     } finally {
-      busy = false;
+      resetBusy();
     }
   })();
 
