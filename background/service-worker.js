@@ -4,6 +4,8 @@ import ocrEngine from '../lib/ocr-engine.js';
 import aiProcessor from '../lib/ai-processor.js';
 import imagePreprocessor from '../lib/image-preprocessor.js';
 
+let lastCapturedImageUrl = null;
+
 function dataUrlToBlob(dataUrl) {
   const commaIdx = dataUrl.indexOf(',');
   if (commaIdx === -1) throw new Error('Invalid image data');
@@ -130,6 +132,7 @@ async function captureFullPage(tabId, windowId, pageUrl) {
     if (!dataUrl || dataUrl.indexOf(',') === -1 || dataUrl.indexOf(',') === dataUrl.length - 1) {
       throw new Error('Page capture returned empty image. The page may not allow screenshots.');
     }
+    lastCapturedImageUrl = dataUrl;
     await runOcr(dataUrl, pageUrl, 'fullpage', tabId);
   } catch (err) {
     broadcastError(err.message, tabId);
@@ -380,6 +383,10 @@ onMessage({
       bitmap.close();
       const croppedBlob = await canvas.convertToBlob({ type: 'image/png' });
 
+      try {
+        lastCapturedImageUrl = await imagePreprocessor.toDataUrl(croppedBlob);
+      } catch (_) {}
+
       await runOcr(croppedBlob, tab.url, 'area', tab.id);
     } catch (err) {
       broadcastError(err.message, tab?.id);
@@ -390,9 +397,11 @@ onMessage({
     const tab = sender.tab || (await getCurrentTab());
     try {
       if (!tab) throw new Error('No active tab');
+      if (!lastCapturedImageUrl) throw new Error('No recent capture. Try OCR again first.');
       broadcastProgress('AI Vision re-reading...', 0.1);
-      const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
-      const imageForAi = await imagePreprocessor.toDataUrl(dataUrl);
+      const imageForAi = lastCapturedImageUrl.length > 500000
+        ? await imagePreprocessor.toDataUrl(lastCapturedImageUrl)
+        : lastCapturedImageUrl;
       const text = await aiProcessor.ocrVision(imageForAi);
 
       const hdRecord = {
