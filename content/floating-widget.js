@@ -27,8 +27,9 @@
       '<div id="ocr-pro-widget-text">' + escapeHtml(preview) + (text.length > 100 ? '...' : '') + '</div>' +
       '<div id="ocr-pro-widget-actions">' +
         '<button id="ocr-pro-widget-copy">Copy</button>' +
-        '<button id="ocr-pro-widget-hd" title="Re-OCR with AI Vision for higher quality">HD</button>' +
-        '<button id="ocr-pro-widget-panel">Open Panel</button>' +
+        '<button id="ocr-pro-widget-translate" title="Translate text">Translate</button>' +
+        '<button id="ocr-pro-widget-hd" title="Re-OCR with AI Vision">HD</button>' +
+        '<button id="ocr-pro-widget-panel">Panel</button>' +
       '</div>';
 
     document.body.appendChild(widget);
@@ -56,6 +57,28 @@
           onCopied();
         });
       } catch (_) {}
+    });
+
+    var translateBtn = widget.querySelector('#ocr-pro-widget-translate');
+    translateBtn.addEventListener('click', function () {
+      translateBtn.textContent = '...';
+      translateBtn.disabled = true;
+      chrome.runtime.sendMessage({ type: 'ocr:translate', text: text, recordId: record.id }).then(function (res) {
+        if (res && res.translated) {
+          var textDiv = widget.querySelector('#ocr-pro-widget-text');
+          if (textDiv) textDiv.textContent = res.translated.slice(0, 200) + (res.translated.length > 200 ? '...' : '');
+          text = res.translated;
+          translateBtn.textContent = 'Translate';
+          translateBtn.disabled = false;
+          navigator.clipboard.writeText(res.translated).catch(function () {});
+        } else {
+          translateBtn.textContent = 'Error';
+          setTimeout(function () { translateBtn.textContent = 'Translate'; translateBtn.disabled = false; }, 2000);
+        }
+      }).catch(function () {
+        translateBtn.textContent = 'Translate';
+        translateBtn.disabled = false;
+      });
     });
 
     var hdBtn = widget.querySelector('#ocr-pro-widget-hd');

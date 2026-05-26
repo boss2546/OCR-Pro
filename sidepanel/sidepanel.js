@@ -20,6 +20,7 @@ const metaSource = $('#meta-source');
 const btnAiEnhance = $('#btn-ai-enhance');
 const aiSpinner = $('#ai-spinner');
 const aiProgress = $('#ai-progress');
+const btnTranslate = $('#btn-translate');
 const btnCopy = $('#btn-copy');
 const btnDownloadTxt = $('#btn-download-txt');
 const btnDownloadMd = $('#btn-download-md');
@@ -95,6 +96,28 @@ btnAiEnhance.addEventListener('click', async () => {
     aiSpinner.hidden = true;
     aiProgress.hidden = true;
     btnAiEnhance.disabled = false;
+  }
+});
+
+// --- Translate ---
+btnTranslate.addEventListener('click', async () => {
+  if (!resultText.value) return;
+  btnTranslate.disabled = true;
+  btnTranslate.textContent = 'Translating...';
+  try {
+    const res = await send('ocr:translate', {
+      text: resultText.value,
+      recordId: currentRecord?.id,
+    });
+    if (res.error) { showToast('Translate: ' + res.error); return; }
+    resultText.value = res.translated;
+    showToast('Translated! (copied)');
+    await exportManager.copyToClipboard(res.translated);
+  } catch (err) {
+    showToast('Translate failed: ' + err.message);
+  } finally {
+    btnTranslate.textContent = 'Translate';
+    btnTranslate.disabled = false;
   }
 });
 

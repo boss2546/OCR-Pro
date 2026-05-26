@@ -425,6 +425,22 @@ onMessage({
     }
   },
 
+  'ocr:translate': async (msg, sender) => {
+    try {
+      const translated = await aiProcessor.translate(msg.text, msg.targetLang || 'auto');
+      if (msg.recordId) {
+        await historyDB.update(msg.recordId, { translatedText: translated });
+      }
+      const tab = sender.tab || (await getCurrentTab());
+      if (tab) {
+        chrome.tabs.sendMessage(tab.id, { type: 'ocr:translated', text: translated }).catch(() => {});
+      }
+      return { translated };
+    } catch (err) {
+      return { error: err.message };
+    }
+  },
+
   [MSG.OPEN_SIDEPANEL]: async (msg, sender) => {
     const tab = sender.tab || (await getCurrentTab());
     if (tab) await chrome.sidePanel.open({ tabId: tab.id });

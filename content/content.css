@@ -118,6 +118,9 @@
 }
 
 #ocr-pro-widget-actions button:hover { background: #e8eaed; }
+#ocr-pro-widget-translate { background: #1e8e3e !important; color: #fff !important; border-color: #1e8e3e !important; font-weight: 600; }
+#ocr-pro-widget-translate:hover { background: #167d34 !important; }
+#ocr-pro-widget-translate:disabled { opacity: 0.6; cursor: wait; }
 #ocr-pro-widget-hd { background: #1a73e8 !important; color: #fff !important; border-color: #1a73e8 !important; font-weight: 600; }
 #ocr-pro-widget-hd:hover { background: #1557b0 !important; }
 #ocr-pro-widget-hd:disabled { opacity: 0.6; cursor: wait; }
