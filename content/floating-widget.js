@@ -33,10 +33,14 @@
 
     widget.querySelector('#ocr-pro-widget-close').addEventListener('click', removeWidget);
 
-    widget.querySelector('#ocr-pro-widget-copy').addEventListener('click', function () {
+    var copyBtn = widget.querySelector('#ocr-pro-widget-copy');
+    copyBtn.addEventListener('click', function () {
+      var currentWidget = widget;
       navigator.clipboard.writeText(text).then(function () {
-        var btn = document.querySelector('#ocr-pro-widget-copy');
-        if (btn) { btn.textContent = 'Copied!'; setTimeout(function () { if (btn) btn.textContent = 'Copy'; }, 1500); }
+        if (currentWidget && currentWidget.isConnected) {
+          var btn = currentWidget.querySelector('#ocr-pro-widget-copy');
+          if (btn) { btn.textContent = 'Copied!'; setTimeout(function () { if (btn.isConnected) btn.textContent = 'Copy'; }, 1500); }
+        }
       }).catch(function () {});
     });
 

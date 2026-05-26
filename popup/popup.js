@@ -26,6 +26,11 @@ let toastTimer;
 
 chrome.storage.local.get({ ocrLanguages: 'eng+tha', theme: 'system' }, (s) => {
   langSelect.value = s.ocrLanguages;
+  // If stored value isn't a valid option, the select resets to the first option.
+  // Detect this and fall back to the default so the UI stays in sync with storage.
+  if (langSelect.value !== s.ocrLanguages) {
+    langSelect.value = 'eng+tha';
+  }
   if (s.theme !== 'system') document.documentElement.setAttribute('data-theme', s.theme);
 });
 

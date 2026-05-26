@@ -47,6 +47,9 @@ async function captureFullPage(tabId, windowId, pageUrl) {
   try {
     broadcastProgress('Capturing page...', 0);
     const dataUrl = await chrome.tabs.captureVisibleTab(windowId, { format: 'png' });
+    if (!dataUrl || dataUrl.indexOf(',') === -1 || dataUrl.indexOf(',') === dataUrl.length - 1) {
+      throw new Error('Page capture returned empty image. The page may not allow screenshots.');
+    }
     await runOcr(dataUrl, pageUrl, 'fullpage', tabId);
   } catch (err) {
     broadcastError(err.message);
@@ -168,9 +171,29 @@ onMessage({
       await new Promise(r => setTimeout(r, 50));
 
       const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
+      if (!dataUrl || dataUrl.indexOf(',') === -1 || dataUrl.indexOf(',') === dataUrl.length - 1) {
+        throw new Error('Area capture returned empty image. The page may not allow screenshots.');
+      }
 
-      const { x, y, w, h } = msg.rect;
+      let { x, y, w, h } = msg.rect;
+      // Normalize negative dimensions (right-to-left or bottom-to-top selection)
+      if (w < 0) { x += w; w = -w; }
+      if (h < 0) { y += h; h = -h; }
+      w = Math.round(w);
+      h = Math.round(h);
+      if (w < 1 || h < 1) throw new Error('Selected area is too small');
+
       const bitmap = await createImageBitmap(dataUrlToBlob(dataUrl));
+
+      // Clamp to bitmap bounds
+      x = Math.max(0, Math.min(x, bitmap.width - 1));
+      y = Math.max(0, Math.min(y, bitmap.height - 1));
+      w = Math.min(w, bitmap.width - x);
+      h = Math.min(h, bitmap.height - y);
+      if (w < 1 || h < 1) {
+        bitmap.close();
+        throw new Error('Selected area is outside the captured image');
+      }
 
       const canvas = new OffscreenCanvas(w, h);
       const ctx = canvas.getContext('2d');
